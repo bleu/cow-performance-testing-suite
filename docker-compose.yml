@@ -69,13 +69,13 @@ services:
   # Database Migrations
   # ===========================================================================
   db-migrations:
-    build:
-      context: ./services
-      target: migrations
-      dockerfile: ./playground/Dockerfile
+    image: ghcr.io/cowprotocol/services:latest
     restart: on-failure
+    entrypoint: ["/usr/local/bin/flyway"]
+    command: ["migrate"]
     environment:
       - FLYWAY_URL=jdbc:postgresql://db:5432/postgres?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+      - FLYWAY_LOCATIONS=filesystem:/app/database/sql
     depends_on:
       db:
         condition: service_healthy
@@ -86,12 +86,9 @@ services:
 
   # Orderbook API - Manages order submission and storage
   orderbook:
-    build:
-      context: ./services
-      target: localdev
-      dockerfile: ./playground/Dockerfile
+    image: ghcr.io/cowprotocol/services:latest
     restart: always
-    command: ["cargo", "watch", "-x", "run --bin orderbook"]
+    command: ["orderbook"]
     environment:
       - NODE_URL=http://chain:8545
       - DB_WRITE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
@@ -120,8 +117,6 @@ services:
       - RUN_LOOP_NATIVE_PRICE_TIMEOUT=5s
       - NATIVE_PRICE_ESTIMATION_RESULTS_REQUIRED=1
       - DISABLE_ORDER_FILTERING=true
-    volumes:
-      - ./services:/src
     depends_on:
       db-migrations:
         condition: service_completed_successfully
@@ -139,12 +134,9 @@ services:
 
   # Autopilot - Orchestrates solver auctions
   autopilot:
-    build:
-      context: ./services
-      target: localdev
-      dockerfile: ./playground/Dockerfile
+    image: ghcr.io/cowprotocol/services:latest
     restart: always
-    command: ["cargo", "watch", "-x", "run --bin autopilot"]
+    command: ["autopilot"]
     environment:
       - NODE_URL=http://chain:8545
       - DB_WRITE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
@@ -163,8 +155,6 @@ services:
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=UniswapV2
       - RUST_BACKTRACE=1
-    volumes:
-      - ./services:/src
     depends_on:
       db-migrations:
         condition: service_completed_successfully
@@ -177,25 +167,15 @@ services:
 
   # Driver - Translates between autopilot and solvers
   driver:
-    build:
-      context: ./services
-      target: localdev
-      dockerfile: ./playground/Dockerfile
+    image: ghcr.io/cowprotocol/services:latest
     restart: always
-    command:
-      [
-        "cargo",
-        "watch",
-        "-x",
-        "run --bin driver -- --config /config/driver.toml",
-      ]
+    command: ["driver", "--config", "/config/driver.toml"]
     environment:
       - ETHRPC=http://chain:8545
       - ADDR=0.0.0.0:80
       - RUST_LOG=driver=debug,shared=info
       - RUST_BACKTRACE=1
     volumes:
-      - ./services:/src
       - ./configs/driver.toml:/config/driver.toml:ro
     depends_on:
       chain:
@@ -211,24 +191,14 @@ services:
 
   # Baseline Solver - Basic AMM-based solver
   baseline:
-    build:
-      context: ./services
-      target: localdev
-      dockerfile: ./playground/Dockerfile
+    image: ghcr.io/cowprotocol/services:latest
     restart: always
-    command:
-      [
-        "cargo",
-        "watch",
-        "-x",
-        "run --bin solvers -- baseline --config /config/baseline.toml",
-      ]
+    command: ["solvers", "baseline", "--config", "/config/baseline.toml"]
     environment:
       - ADDR=0.0.0.0:80
       - RUST_LOG=solvers=debug,shared=info
       - RUST_BACKTRACE=1
     volumes:
-      - ./services:/src
       - ./configs/baseline.toml:/config/baseline.toml:ro
     depends_on:
       chain:

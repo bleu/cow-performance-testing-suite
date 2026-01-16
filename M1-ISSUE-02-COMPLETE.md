@@ -51,10 +51,11 @@
 - `configs/grafana-dashboard.yml` (10 lines)
   - Monitoring configuration
 
-### 4. Git Submodule (1 submodule)
-- `services/` - CoW Protocol services repository
-  - Commit: `04f4e63687263ab3f1029197b175ec3be8f0a20e`
-  - Version: v2.313.1-468-g04f4e6368
+### 4. Docker Images
+- Uses pre-built images from GitHub Container Registry
+  - `ghcr.io/cowprotocol/services:latest`
+  - No local build required
+  - No services source code in repository
 
 ### 5. Documentation Updates
 - `README.md` - Added comprehensive "Fork Mode Environment Setup" section (160+ lines)
@@ -134,10 +135,7 @@ cp .env.example .env
 
 ### 2. Start Services:
 ```bash
-# Clone with submodules
-git submodule update --init --recursive
-
-# Start core services
+# Start core services (downloads images from ghcr.io)
 docker compose up -d
 
 # Or with monitoring
@@ -178,7 +176,7 @@ From M1-Issue-02 requirements:
 - Autopilot
 - Driver
 - Baseline Solver
-- All built from official cowprotocol/services repo
+- Uses pre-built images from ghcr.io/cowprotocol/services
 
 ✅ **Testing environment validation**
 - Service health checks
@@ -252,9 +250,6 @@ With M1-Issue-02 complete, you can:
 - configs/grafana-datasource.yml
 - configs/grafana-dashboard.yml
 
-**Git Submodules**: 1
-- services/ (CoW Protocol services)
-
 **Documentation**: 1
 - Updated README.md with Fork Mode section
 
@@ -271,7 +266,8 @@ With M1-Issue-02 complete, you can:
 - Mounted configuration as read-only volumes
 
 ### CoW Protocol Integration:
-- Services built from official repository
+- Uses pre-built Docker images from ghcr.io
+- No source code dependencies in repository
 - Configuration follows playground patterns
 - Uses standard mainnet contract addresses
 - Authenticator patched for unrestricted testing
@@ -287,7 +283,7 @@ With M1-Issue-02 complete, you can:
 ## 💡 Important Notes
 
 ### First Startup Time:
-- **10-15 minutes** for initial Docker image builds
+- **2-5 minutes** for initial Docker image downloads
 - Subsequent startups: ~30 seconds
 
 ### Resource Requirements:

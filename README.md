@@ -66,19 +66,13 @@ The CoW Performance Testing Suite uses **Anvil fork mode** to create a realistic
 - Docker and Docker Compose installed
 - Access to an Ethereum RPC endpoint (Alchemy, Infura, or similar)
 - At least 8GB RAM available for Docker
-- Git with submodules support
 
 ### Initial Setup
 
-1. **Clone the repository with submodules:**
+1. **Clone the repository:**
    ```bash
-   git clone --recurse-submodules https://github.com/bleu/cow-performance-testing-suite.git
+   git clone https://github.com/bleu/cow-performance-testing-suite.git
    cd cow-performance-testing-suite
-   ```
-
-   If you already cloned without submodules, initialize them:
-   ```bash
-   git submodule update --init --recursive
    ```
 
 2. **Configure environment variables:**
@@ -100,7 +94,7 @@ The CoW Performance Testing Suite uses **Anvil fork mode** to create a realistic
    docker compose --profile monitoring up -d
    ```
 
-   **Note**: First startup will build Docker images, which can take 10-15 minutes.
+   **Note**: First startup will download Docker images from GitHub Container Registry (ghcr.io).
 
 4. **Wait for services to be ready:**
    ```bash
