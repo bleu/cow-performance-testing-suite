@@ -1,0 +1,293 @@
+# CoW Protocol Performance Testing Suite - Fork Mode Environment
+# This docker-compose file sets up a complete testing environment with:
+# - Anvil node forking mainnet
+# - CoW Protocol services (Orderbook, Autopilot, Driver, Solver)
+# - Database and monitoring tools
+
+services:
+  # ===========================================================================
+  # Blockchain Node (Anvil Fork Mode)
+  # ===========================================================================
+  chain:
+    image: ghcr.io/foundry-rs/foundry:latest
+    restart: always
+    entrypoint: /usr/local/bin/anvil
+    command: >
+      --fork-url ${ETH_RPC_URL}
+      --host 0.0.0.0
+      --port 8545
+      --chain-id 1
+      --block-time 1
+      --gas-limit 30000000
+      --code-size-limit 50000
+    environment:
+      - ANVIL_IP_ADDR=0.0.0.0
+    ports:
+      - "8545:8545"
+    healthcheck:
+      # Healthcheck that also patches the authenticator contract to allow any solver
+      test: >
+        sh -c '
+        response=$$(wget -qO- --header="Content-Type: application/json" --post-data="{\"jsonrpc\":\"2.0\", \"method\":\"eth_blockNumber\", \"params\":[], \"id\":1}" http://127.0.0.1:8545);
+        block=$$(echo $$response | sed -n "s/.*\"result\":\"\\([^\"\\]*\\)\".*/\\1/p");
+        if [ -n "$$block" ] && [ "$$block" != "0x0" ] && [ "$$block" != "null" ]; then
+          /usr/local/bin/cast rpc -r http://127.0.0.1:8545 anvil_setCode 0x2c4c28DDBdAc9C5E7055b4C863b72eA0149D8aFE 0x600160005260206000F3;
+          exit 0;
+        else
+          exit 1;
+        fi
+        '
+      interval: 5s
+      timeout: 30s
+      retries: 10
+      start_period: 5s
+
+  # ===========================================================================
+  # Database
+  # ===========================================================================
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    command: postgres -c 'max_connections=200'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ===========================================================================
+  # Database Migrations
+  # ===========================================================================
+  db-migrations:
+    build:
+      context: ./services
+      target: migrations
+      dockerfile: ./playground/Dockerfile
+    restart: on-failure
+    environment:
+      - FLYWAY_URL=jdbc:postgresql://db:5432/postgres?user=${POSTGRES_USER:-postgres}&password=${POSTGRES_PASSWORD:-password}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ===========================================================================
+  # CoW Protocol Services
+  # ===========================================================================
+
+  # Orderbook API - Manages order submission and storage
+  orderbook:
+    build:
+      context: ./services
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    command: ["cargo", "watch", "-x", "run --bin orderbook"]
+    environment:
+      - NODE_URL=http://chain:8545
+      - DB_WRITE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
+      - DB_READ_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
+      - SIMULATION_NODE_URL=http://chain:8545
+      - ACCOUNT_BALANCES_SIMULATION=true
+      - ACCOUNT_BALANCES_SIMULATOR=Web3
+      - EIP1271_SKIP_CREATION_VALIDATION=true
+      - ENABLE_EIP1271_ORDERS=true
+      - PRICE_ESTIMATORS=None
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
+      - DRIVERS=baseline|http://driver/baseline
+      - BIND_ADDRESS=0.0.0.0:80
+      - CHAIN_ID=1
+      - BASELINE_SOURCES=UniswapV2
+      - RUST_BACKTRACE=1
+      - RUST_LOG=orderbook=debug,shared=info
+      - SKIP_EVENT_SYNC=false
+      - SETTLE_INTERVAL=15s
+      - GAS_ESTIMATORS=Native,Web3
+      - BLOCK_STREAM_POLL_INTERVAL=1s
+      - NATIVE_PRICE_CACHE_MAX_UPDATE_SIZE=100
+      - NATIVE_PRICE_CACHE_MAX_AGE=20m
+      - SOLVER_TIME_LIMIT=5
+      - RUN_LOOP_NATIVE_PRICE_TIMEOUT=5s
+      - NATIVE_PRICE_ESTIMATION_RESULTS_REQUIRED=1
+      - DISABLE_ORDER_FILTERING=true
+    volumes:
+      - ./services:/src
+    depends_on:
+      db-migrations:
+        condition: service_completed_successfully
+      chain:
+        condition: service_healthy
+    ports:
+      - "8080:80"      # API
+      - "9586:9586"    # Metrics
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/api/v1/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Autopilot - Orchestrates solver auctions
+  autopilot:
+    build:
+      context: ./services
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    command: ["cargo", "watch", "-x", "run --bin autopilot"]
+    environment:
+      - NODE_URL=http://chain:8545
+      - DB_WRITE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
+      - DB_READ_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
+      - SIMULATION_NODE_URL=http://chain:8545
+      - RUST_LOG=autopilot=debug,shared=info
+      - DRIVERS=baseline|http://driver/baseline|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
+      - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
+      - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
+      - SETTLE_INTERVAL=15s
+      - GAS_ESTIMATORS=Native,Web3
+      - BLOCK_STREAM_POLL_INTERVAL=1s
+      - NATIVE_PRICE_CACHE_MAX_UPDATE_SIZE=100
+      - NATIVE_PRICE_CACHE_MAX_AGE=20m
+      - SOLVER_TIME_LIMIT=5
+      - SKIP_EVENT_SYNC=true
+      - BASELINE_SOURCES=UniswapV2
+      - RUST_BACKTRACE=1
+    volumes:
+      - ./services:/src
+    depends_on:
+      db-migrations:
+        condition: service_completed_successfully
+      orderbook:
+        condition: service_healthy
+      chain:
+        condition: service_healthy
+    ports:
+      - "9589:9589"    # Metrics
+
+  # Driver - Translates between autopilot and solvers
+  driver:
+    build:
+      context: ./services
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin driver -- --config /config/driver.toml",
+      ]
+    environment:
+      - ETHRPC=http://chain:8545
+      - ADDR=0.0.0.0:80
+      - RUST_LOG=driver=debug,shared=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - ./services:/src
+      - ./configs/driver.toml:/config/driver.toml:ro
+    depends_on:
+      chain:
+        condition: service_healthy
+    ports:
+      - "9000:80"      # API & Metrics
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Baseline Solver - Basic AMM-based solver
+  baseline:
+    build:
+      context: ./services
+      target: localdev
+      dockerfile: ./playground/Dockerfile
+    restart: always
+    command:
+      [
+        "cargo",
+        "watch",
+        "-x",
+        "run --bin solvers -- baseline --config /config/baseline.toml",
+      ]
+    environment:
+      - ADDR=0.0.0.0:80
+      - RUST_LOG=solvers=debug,shared=info
+      - RUST_BACKTRACE=1
+    volumes:
+      - ./services:/src
+      - ./configs/baseline.toml:/config/baseline.toml:ro
+    depends_on:
+      chain:
+        condition: service_healthy
+    ports:
+      - "9001:80"      # API & Metrics
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ===========================================================================
+  # Monitoring (Optional)
+  # ===========================================================================
+
+  # Prometheus - Metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    profiles:
+      - monitoring
+
+  # Grafana - Metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/performance.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./configs/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./configs/grafana-dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: cow-perf-test

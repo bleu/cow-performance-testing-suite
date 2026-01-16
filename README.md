@@ -57,6 +57,170 @@ cow-perf scenarios list
 cow-perf --help
 ```
 
+## Fork Mode Environment Setup
+
+The CoW Performance Testing Suite uses **Anvil fork mode** to create a realistic testing environment by forking mainnet state. This allows you to test against real liquidity, contracts, and state without spending real gas or affecting mainnet.
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Access to an Ethereum RPC endpoint (Alchemy, Infura, or similar)
+- At least 8GB RAM available for Docker
+- Git with submodules support
+
+### Initial Setup
+
+1. **Clone the repository with submodules:**
+   ```bash
+   git clone --recurse-submodules https://github.com/bleu/cow-performance-testing-suite.git
+   cd cow-performance-testing-suite
+   ```
+
+   If you already cloned without submodules, initialize them:
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+2. **Configure environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and set your Ethereum RPC URL:
+   ```bash
+   ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+   ```
+
+3. **Start the fork mode environment:**
+   ```bash
+   # Start core services
+   docker compose up -d
+
+   # Or start with monitoring (Prometheus & Grafana)
+   docker compose --profile monitoring up -d
+   ```
+
+   **Note**: First startup will build Docker images, which can take 10-15 minutes.
+
+4. **Wait for services to be ready:**
+   ```bash
+   # Check services are running
+   docker compose ps
+
+   # Follow logs
+   docker compose logs -f
+   ```
+
+### Manual Setup (Alternative)
+
+If you prefer to start services manually:
+
+```bash
+# Start core services only
+docker compose up -d
+
+# Start with monitoring (Prometheus & Grafana)
+docker compose --profile monitoring up -d
+
+# View logs
+docker compose logs -f
+
+# Check service status
+docker compose ps
+
+# Stop services
+docker compose down
+```
+
+### Service URLs
+
+Once the environment is running, the following services are available:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Anvil RPC | http://localhost:8545 | Forked Ethereum node |
+| Orderbook API | http://localhost:8080 | CoW Protocol orderbook |
+| Driver | http://localhost:9000 | Driver service |
+| Baseline Solver | http://localhost:9001 | AMM-based solver |
+| PostgreSQL | localhost:5432 | Database |
+| Prometheus | http://localhost:9090 | Metrics (with monitoring profile) |
+| Grafana | http://localhost:3000 | Dashboards (with monitoring profile) |
+
+### Verifying the Environment
+
+```bash
+# Check if Anvil is running
+cast block-number --rpc-url http://localhost:8545
+
+# Check orderbook API
+curl http://localhost:8080/api/v1/version
+
+# Check all services status
+docker compose ps
+
+# Check database
+docker exec $(docker ps -qf "name=db") pg_isready -U postgres
+```
+
+### Troubleshooting
+
+#### Services failing to start
+
+```bash
+# Check logs
+docker compose logs orderbook
+docker compose logs autopilot
+docker compose logs driver
+
+# Restart a specific service
+docker compose restart orderbook
+
+# Rebuild and restart
+docker compose up -d --build orderbook
+```
+
+#### Database connection issues
+
+```bash
+# Check database is running
+docker compose ps db
+
+# Check database logs
+docker compose logs db
+
+# Reset database
+docker compose down -v
+docker compose up -d
+```
+
+#### Anvil fork issues
+
+Make sure your `ETH_RPC_URL` in `.env` is:
+- A valid Ethereum mainnet RPC URL
+- Has sufficient rate limits
+- Supports `eth_blockNumber` and archive state queries
+
+#### Out of memory
+
+Increase Docker memory limit to at least 8GB:
+- Docker Desktop → Settings → Resources → Memory
+
+### Environment Management
+
+```bash
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (fresh start)
+docker compose down -v
+
+# View resource usage
+docker stats
+
+# Clean up old images and containers
+docker system prune -a
+```
+
 ## Development Setup
 
 ### Setting up the development environment
