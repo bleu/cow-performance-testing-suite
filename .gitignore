@@ -141,3 +141,6 @@ docker-compose.override.yml
 *.tmp
 *.bak
 *.orig
+
+#Issues
+/issues
