@@ -1,17 +1,16 @@
 # CoW Protocol Baseline Solver Configuration
 # The baseline solver is a simple AMM-based solver that uses Uniswap V2 pools
 
-# Chain ID (1 for mainnet)
+# Chain ID (1 for Ethereum mainnet)
 chain-id = "1"
 
-# Base tokens used for routing
+# Base tokens used for routing (Ethereum mainnet addresses)
 # The solver will attempt to route trades through these tokens
 base-tokens = [
-    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH
+    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",  # WETH (Wrapped ETH)
     "0x6B175474E89094C44Da98b954EedeAC495271d0F",  # DAI
     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC
     "0xdAC17F958D2ee523a2206206994597C13D831ec7",  # USDT
-    "0x6810e776880C02933D47DB1b9fc05908e5386b96",  # GNO
 ]
 
 # Maximum number of hops in a multi-hop swap
