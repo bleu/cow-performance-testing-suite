@@ -144,3 +144,6 @@ docker-compose.override.yml
 
 #Issues
 /issues
+
+# Private thoughts (not committed)
+thoughts/private/
