@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Optional
 
 from eth_account.messages import encode_typed_data
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from web3 import Web3
 
 
@@ -138,11 +138,10 @@ class SignedOrder(BaseModel):
     )
     signature: str = Field(..., description="Order signature")
 
-    class Config:
-        """Pydantic configuration."""
-
-        populate_by_name = True
-        use_enum_values = True
+    model_config = ConfigDict(
+        populate_by_name=True,
+        use_enum_values=True,
+    )
 
 
 class EIP712Domain(BaseModel):
