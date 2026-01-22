@@ -6,7 +6,6 @@ including order kinds, classes, parameters, and signed orders with EIP-712 suppo
 """
 
 from enum import Enum
-from typing import Optional
 
 from eth_account.messages import encode_typed_data
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -69,13 +68,13 @@ class OrderParameters(BaseModel):
     buyTokenBalance: OrderBalance = Field(
         default=OrderBalance.ERC20, description="Destination for buy token"
     )
-    receiver: Optional[str] = Field(
+    receiver: str | None = Field(
         default=None, description="Receiver address (defaults to owner if None)"
     )
 
     @field_validator("sellToken", "buyToken", "receiver")
     @classmethod
-    def validate_address(cls, v: Optional[str]) -> Optional[str]:
+    def validate_address(cls, v: str | None) -> str | None:
         """Validate Ethereum addresses are properly checksummed."""
         if v is None:
             return v
@@ -129,7 +128,7 @@ class SignedOrder(BaseModel):
     partiallyFillable: bool
     sellTokenBalance: OrderBalance = OrderBalance.ERC20
     buyTokenBalance: OrderBalance = OrderBalance.ERC20
-    receiver: Optional[str] = None
+    receiver: str | None = None
 
     # Order metadata
     from_: str = Field(..., alias="from", description="Order owner address")

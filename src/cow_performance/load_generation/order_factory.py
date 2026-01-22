@@ -8,7 +8,6 @@ orders with configurable parameters, token pairs, and amounts.
 import random
 import time
 from decimal import Decimal
-from typing import Optional, Tuple
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -19,7 +18,6 @@ from .order_schema import (
     OrderParameters,
     SignedOrder,
     SigningScheme,
-    create_order_hash,
 )
 from .order_validation import assert_valid_order
 from .token_pair import TokenPair, TokenPairRegistry
@@ -38,7 +36,7 @@ class OrderFactory:
         token_pair_registry: TokenPairRegistry,
         chain_id: int,
         settlement_contract: str,
-        amount_range: Optional[Tuple[float, float]] = None,
+        amount_range: tuple[float, float] | None = None,
         valid_duration: int = 3600,
         default_app_data: str = "0x0000000000000000000000000000000000000000000000000000000000000000",
         fee_percentage: float = 0.001,
@@ -95,7 +93,7 @@ class OrderFactory:
         sell_amount_wei: int,
         sell_token_decimals: int,
         buy_token_decimals: int,
-        price: Optional[Decimal] = None,
+        price: Decimal | None = None,
     ) -> int:
         """
         Calculate buy amount based on sell amount and price.
@@ -148,8 +146,8 @@ class OrderFactory:
     def create_market_order(
         self,
         trader_account: LocalAccount,
-        token_pair: Optional[TokenPair] = None,
-        sell_amount: Optional[float] = None,
+        token_pair: TokenPair | None = None,
+        sell_amount: float | None = None,
         kind: OrderKind = OrderKind.SELL,
     ) -> SignedOrder:
         """
@@ -214,9 +212,9 @@ class OrderFactory:
     def create_limit_order(
         self,
         trader_account: LocalAccount,
-        token_pair: Optional[TokenPair] = None,
-        limit_price: Optional[Decimal] = None,
-        sell_amount: Optional[float] = None,
+        token_pair: TokenPair | None = None,
+        limit_price: Decimal | None = None,
+        sell_amount: float | None = None,
         kind: OrderKind = OrderKind.SELL,
     ) -> SignedOrder:
         """
@@ -348,7 +346,7 @@ class OrderFactory:
         )
 
         # Create signed order
-        signed_order = SignedOrder(
+        signed_order = SignedOrder(  # type: ignore[call-arg]
             sellToken=params.sellToken,
             buyToken=params.buyToken,
             sellAmount=params.sellAmount,

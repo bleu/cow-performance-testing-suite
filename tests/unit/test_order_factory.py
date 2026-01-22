@@ -147,18 +147,14 @@ class TestOrderFactory:
         self, factory: OrderFactory, trader_account: Account
     ) -> None:
         """Test creating batch with all market orders."""
-        orders = factory.create_batch_orders(
-            trader_account, count=5, market_order_ratio=1.0
-        )
+        orders = factory.create_batch_orders(trader_account, count=5, market_order_ratio=1.0)
         assert len(orders) == 5
 
     def test_create_batch_orders_all_limit(
         self, factory: OrderFactory, trader_account: Account
     ) -> None:
         """Test creating batch with all limit orders."""
-        orders = factory.create_batch_orders(
-            trader_account, count=5, market_order_ratio=0.0
-        )
+        orders = factory.create_batch_orders(trader_account, count=5, market_order_ratio=0.0)
         assert len(orders) == 5
 
     def test_create_batch_orders_invalid_count(
@@ -173,9 +169,7 @@ class TestOrderFactory:
     ) -> None:
         """Test creating batch with invalid ratio."""
         with pytest.raises(ValueError, match="Market order ratio must be between"):
-            factory.create_batch_orders(
-                trader_account, count=5, market_order_ratio=1.5
-            )
+            factory.create_batch_orders(trader_account, count=5, market_order_ratio=1.5)
 
     def test_order_signature_valid(self, factory: OrderFactory, trader_account: Account) -> None:
         """Test that order signatures are valid."""
@@ -185,9 +179,7 @@ class TestOrderFactory:
         # Or 134 for v=27/28 format
         assert len(order.signature) >= 132
 
-    def test_order_valid_to_in_future(
-        self, factory: OrderFactory, trader_account: Account
-    ) -> None:
+    def test_order_valid_to_in_future(self, factory: OrderFactory, trader_account: Account) -> None:
         """Test that order validTo is in the future."""
         order = factory.create_market_order(trader_account)
         current_time = int(time.time())

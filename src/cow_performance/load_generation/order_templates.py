@@ -7,7 +7,7 @@ parameters that can be overridden for specific use cases.
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any
 
 from eth_account.signers.local import LocalAccount
 
@@ -30,14 +30,14 @@ class OrderTemplate:
     order_type: str  # "market" or "limit"
     kind: OrderKind = OrderKind.SELL
     sell_amount_range: tuple[float, float] = (0.1, 10.0)
-    limit_price: Optional[Decimal] = None
+    limit_price: Decimal | None = None
     partially_fillable: bool = False
     sell_token_balance: OrderBalance = OrderBalance.ERC20
     buy_token_balance: OrderBalance = OrderBalance.ERC20
     valid_duration: int = 3600
     fee_percentage: float = 0.001
-    token_pair_filter: Optional[str] = None  # e.g., "WETH/*" or "*/USDC"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    token_pair_filter: str | None = None  # e.g., "WETH/*" or "*/USDC"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate template after initialization."""
@@ -81,7 +81,7 @@ class OrderTemplateRegistry:
 
     def __init__(self) -> None:
         """Initialize the template registry."""
-        self._templates: Dict[str, OrderTemplate] = {}
+        self._templates: dict[str, OrderTemplate] = {}
 
     def register(self, template: OrderTemplate) -> None:
         """
@@ -92,7 +92,7 @@ class OrderTemplateRegistry:
         """
         self._templates[template.name] = template
 
-    def get(self, name: str) -> Optional[OrderTemplate]:
+    def get(self, name: str) -> OrderTemplate | None:
         """
         Get a template by name.
 
@@ -118,8 +118,8 @@ class OrderTemplateRegistry:
         template_name: str,
         factory: OrderFactory,
         trader_account: LocalAccount,
-        token_pair: Optional[TokenPair] = None,
-        overrides: Optional[Dict[str, Any]] = None,
+        token_pair: TokenPair | None = None,
+        overrides: dict[str, Any] | None = None,
     ) -> SignedOrder:
         """
         Create an order from a template with optional overrides.

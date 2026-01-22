@@ -380,9 +380,9 @@ class TestOrderVariety:
         orders = mainnet_factory.create_batch_orders(trader, count=50)
 
         # Collect unique values
-        sell_amounts = set(order.sellAmount for order in orders)
-        buy_amounts = set(order.buyAmount for order in orders)
-        token_pairs = set((order.sellToken, order.buyToken) for order in orders)
+        sell_amounts = {order.sellAmount for order in orders}
+        buy_amounts = {order.buyAmount for order in orders}
+        token_pairs = {(order.sellToken, order.buyToken) for order in orders}
 
         # Should have variety in amounts (not all the same)
         assert len(sell_amounts) > 10, "Orders lack variety in sell amounts"
@@ -402,7 +402,7 @@ class TestOrderVariety:
             orders.append(order)
 
         # Each order should have different owner
-        owners = set(order.from_ for order in orders)
+        owners = {order.from_ for order in orders}
         assert len(owners) == len(trader_accounts)
 
         # All orders should be valid
@@ -432,7 +432,7 @@ class TestStressOrderGeneration:
 
         # Generate 1000 orders
         all_orders = []
-        for i in range(10):
+        for _ in range(10):
             batch = mainnet_factory.create_batch_orders(trader, count=100)
             all_orders.extend(batch)
 
@@ -449,7 +449,11 @@ class TestStressOrderGeneration:
 
         # Log performance (orders per second)
         orders_per_second = 1000 / elapsed_time
-        print(f"\nGenerated 1000 orders in {elapsed_time:.2f}s ({orders_per_second:.2f} orders/sec)")
+        print(
+            f"\nGenerated 1000 orders in {elapsed_time:.2f}s ({orders_per_second:.2f} orders/sec)"
+        )
 
         # Should be reasonably fast (at least 10 orders/sec)
-        assert orders_per_second > 10, f"Order generation too slow: {orders_per_second:.2f} orders/sec"
+        assert (
+            orders_per_second > 10
+        ), f"Order generation too slow: {orders_per_second:.2f} orders/sec"

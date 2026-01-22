@@ -7,7 +7,6 @@ including token metadata (address, decimals, symbol) and selection strategies.
 
 import random
 from dataclasses import dataclass
-from typing import List, Optional
 
 from web3 import Web3
 
@@ -55,7 +54,8 @@ class Token:
         Returns:
             Amount in decimal form
         """
-        return amount / (10**self.decimals)
+        result: float = float(amount) / (10**self.decimals)
+        return result
 
 
 @dataclass
@@ -106,14 +106,14 @@ class TokenPairRegistry:
     using different strategies (random, weighted, sequential).
     """
 
-    def __init__(self, token_pairs: Optional[List[TokenPair]] = None) -> None:
+    def __init__(self, token_pairs: list[TokenPair] | None = None) -> None:
         """
         Initialize the token pair registry.
 
         Args:
             token_pairs: List of token pairs to register (default: empty list)
         """
-        self._pairs: List[TokenPair] = token_pairs or []
+        self._pairs: list[TokenPair] = token_pairs or []
         self._index = 0
 
     def add_pair(self, pair: TokenPair) -> None:
@@ -125,7 +125,7 @@ class TokenPairRegistry:
         """
         self._pairs.append(pair)
 
-    def get_all_pairs(self) -> List[TokenPair]:
+    def get_all_pairs(self) -> list[TokenPair]:
         """
         Get all registered token pairs.
 
@@ -183,7 +183,7 @@ class TokenPairRegistry:
         self._index = (self._index + 1) % len(self._pairs)
         return pair
 
-    def get_pair_by_symbols(self, sell_symbol: str, buy_symbol: str) -> Optional[TokenPair]:
+    def get_pair_by_symbols(self, sell_symbol: str, buy_symbol: str) -> TokenPair | None:
         """
         Get a token pair by token symbols.
 

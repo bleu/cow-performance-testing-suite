@@ -6,7 +6,6 @@ before submission to the orderbook API.
 """
 
 import time
-from typing import List, Optional
 
 from web3 import Web3
 
@@ -107,7 +106,7 @@ def validate_app_data(app_data: str) -> None:
         raise OrderValidationError(f"appData must be valid hex: {app_data}") from e
 
 
-def validate_order_parameters(params: OrderParameters) -> List[str]:
+def validate_order_parameters(params: OrderParameters) -> list[str]:
     """
     Validate order parameters and return list of validation errors.
 
@@ -117,7 +116,7 @@ def validate_order_parameters(params: OrderParameters) -> List[str]:
     Returns:
         List of validation error messages (empty if valid)
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # Validate addresses
     try:
@@ -177,7 +176,7 @@ def validate_order_parameters(params: OrderParameters) -> List[str]:
     return errors
 
 
-def validate_signed_order(order: SignedOrder) -> List[str]:
+def validate_signed_order(order: SignedOrder) -> list[str]:
     """
     Validate a signed order and return list of validation errors.
 
@@ -187,7 +186,7 @@ def validate_signed_order(order: SignedOrder) -> List[str]:
     Returns:
         List of validation error messages (empty if valid)
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     # Validate addresses
     try:
@@ -299,7 +298,7 @@ def assert_valid_order(params: OrderParameters) -> None:
     errors = validate_order_parameters(params)
     if errors:
         raise OrderValidationError(
-            f"Order validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            "Order validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
         )
 
 
@@ -316,5 +315,5 @@ def assert_valid_signed_order(order: SignedOrder) -> None:
     errors = validate_signed_order(order)
     if errors:
         raise OrderValidationError(
-            f"Signed order validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            "Signed order validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
         )

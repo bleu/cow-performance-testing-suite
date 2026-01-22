@@ -33,7 +33,9 @@ def show_version() -> None:
 @app.command()
 def run(
     scenario: str,
-    duration: Optional[int] = typer.Option(None, "--duration", "-d", help="Override scenario duration (seconds)"),
+    duration: Optional[int] = typer.Option(
+        None, "--duration", "-d", help="Override scenario duration (seconds)"
+    ),
 ) -> None:
     """Run a performance test scenario.
 

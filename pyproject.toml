@@ -97,6 +97,7 @@ ignore = [
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
+"src/cow_performance/cli/*.py" = ["UP045"]  # Typer requires Optional syntax
 
 [tool.mypy]
 python_version = "3.11"

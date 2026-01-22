@@ -7,7 +7,7 @@ import pytest
 from eth_account import Account
 
 from cow_performance.load_generation.order_factory import OrderFactory
-from cow_performance.load_generation.order_schema import OrderBalance, OrderKind
+from cow_performance.load_generation.order_schema import OrderKind
 from cow_performance.load_generation.order_templates import (
     OrderTemplate,
     OrderTemplateRegistry,
