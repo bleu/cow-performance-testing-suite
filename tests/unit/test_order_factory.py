@@ -1,5 +1,6 @@
 """Unit tests for order factory."""
 
+import random
 import time
 
 import pytest
@@ -13,6 +14,13 @@ from cow_performance.load_generation.token_pair import (
     TokenPairRegistry,
     create_mainnet_token_registry,
 )
+
+
+@pytest.fixture(autouse=True)
+def deterministic_random():
+    """Set random seed for deterministic order generation."""
+    random.seed(42)
+    yield
 
 
 class TestOrderFactory:

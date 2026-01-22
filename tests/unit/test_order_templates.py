@@ -1,5 +1,6 @@
 """Unit tests for order templates."""
 
+import random
 from decimal import Decimal
 
 import pytest
@@ -17,6 +18,13 @@ from cow_performance.load_generation.token_pair import (
     TokenPair,
     create_mainnet_token_registry,
 )
+
+
+@pytest.fixture(autouse=True)
+def deterministic_random():
+    """Set random seed for deterministic order generation."""
+    random.seed(42)
+    yield
 
 
 class TestOrderTemplate:

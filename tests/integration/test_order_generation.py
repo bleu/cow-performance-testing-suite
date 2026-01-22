@@ -1,6 +1,7 @@
 """Integration tests for order generation module."""
 
 import json
+import random
 
 import pytest
 from eth_account import Account
@@ -14,6 +15,20 @@ from cow_performance.load_generation import (
     create_polygon_token_registry,
     validate_signed_order,
 )
+
+
+@pytest.fixture(autouse=True)
+def deterministic_random():
+    """
+    Set random seed for deterministic order generation.
+
+    This fixture runs automatically for all tests (autouse=True), ensuring
+    that order generation produces the same results on every test run.
+    This makes tests reproducible and easier to debug.
+    """
+    random.seed(42)
+    yield
+    # Reset to random state after test (optional)
 
 
 @pytest.fixture
