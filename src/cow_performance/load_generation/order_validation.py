@@ -298,7 +298,9 @@ def assert_valid_order(params: OrderParameters) -> None:
     """
     errors = validate_order_parameters(params)
     if errors:
-        raise OrderValidationError(f"Order validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+        raise OrderValidationError(
+            f"Order validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+        )
 
 
 def assert_valid_signed_order(order: SignedOrder) -> None:

@@ -5,9 +5,6 @@ This module defines Pydantic models for advanced order types including TWAP,
 Stop-Loss, and Good-After-Time orders that use the ComposableCow framework.
 """
 
-from enum import Enum
-from typing import Optional
-
 from pydantic import BaseModel, Field, field_validator
 from web3 import Web3
 
@@ -90,9 +87,7 @@ class StopLossOrderParameters(BaseModel):
         default=False, description="Whether order can be partially filled"
     )
     validTo: int = Field(..., description="Unix timestamp until order is valid")
-    sellTokenPriceOracle: str = Field(
-        ..., description="Chainlink oracle address for sell token"
-    )
+    sellTokenPriceOracle: str = Field(..., description="Chainlink oracle address for sell token")
     buyTokenPriceOracle: str = Field(..., description="Chainlink oracle address for buy token")
     strike: str = Field(..., description="Strike price in 18 decimals (trigger threshold)")
     maxTimeSinceLastOracleUpdate: int = Field(

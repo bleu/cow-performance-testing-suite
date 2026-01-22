@@ -241,12 +241,15 @@ def create_order_hash(
 
     # Create typed data structure
     typed_data = {
-        "types": {**types, "EIP712Domain": [
-            {"name": "name", "type": "string"},
-            {"name": "version", "type": "string"},
-            {"name": "chainId", "type": "uint256"},
-            {"name": "verifyingContract", "type": "address"},
-        ]},
+        "types": {
+            **types,
+            "EIP712Domain": [
+                {"name": "name", "type": "string"},
+                {"name": "version", "type": "string"},
+                {"name": "chainId", "type": "uint256"},
+                {"name": "verifyingContract", "type": "address"},
+            ],
+        },
         "primaryType": "Order",
         "domain": domain,
         "message": message,

@@ -153,7 +153,9 @@ class OrderTemplateRegistry:
             all_pairs = factory.token_pair_registry.get_all_pairs()
             matching_pairs = [p for p in all_pairs if template.matches_token_pair(p)]
             if not matching_pairs:
-                raise ValueError(f"No token pairs match template filter: {template.token_pair_filter}")
+                raise ValueError(
+                    f"No token pairs match template filter: {template.token_pair_filter}"
+                )
             token_pair = factory.token_pair_registry.select_weighted_random()
 
         # Create order based on template type

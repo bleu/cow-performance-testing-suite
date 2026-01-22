@@ -5,7 +5,9 @@ This module provides templates for generating conditional orders with
 predefined parameters for common use cases.
 """
 
-from typing import Any, Dict, Optional, Tuple
+# mypy: disable-error-code=call-arg
+
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -23,38 +25,38 @@ class ConditionalOrderTemplate(BaseModel):
     order_type: str = Field(..., description="Order type (twap, stop_loss, good_after_time)")
 
     # TWAP-specific parameters
-    num_parts: Optional[int] = Field(None, description="Number of TWAP parts", ge=2)
-    interval_seconds: Optional[int] = Field(
+    num_parts: int | None = Field(None, description="Number of TWAP parts", ge=2)
+    interval_seconds: int | None = Field(
         None, description="Interval between TWAP parts (seconds)", gt=0
     )
-    start_delay_seconds: Optional[int] = Field(
+    start_delay_seconds: int | None = Field(
         None, description="Delay before first TWAP part (seconds)", ge=0
     )
 
     # Stop-Loss-specific parameters
-    strike_percentage: Optional[float] = Field(
+    strike_percentage: float | None = Field(
         None, description="Strike as % of current price (e.g., 90.0 = 10% drop)", gt=0, le=100
     )
 
     # Good-After-Time-specific parameters
-    delay_seconds: Optional[int] = Field(
+    delay_seconds: int | None = Field(
         None, description="Delay before order activates (seconds)", gt=0
     )
 
     # Common parameters
-    amount_range: Tuple[float, float] = Field(
+    amount_range: tuple[float, float] = Field(
         default=(1.0, 10.0), description="Min and max amounts in token units"
     )
-    token_pair_filter: Optional[str] = Field(
+    token_pair_filter: str | None = Field(
         None, description="Filter for specific token pairs (e.g., 'WETH-USDC')"
     )
     valid_duration: int = Field(
         default=3600, description="Order validity duration in seconds", gt=0
     )
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
 
-def create_default_conditional_templates() -> Dict[str, ConditionalOrderTemplate]:
+def create_default_conditional_templates() -> dict[str, ConditionalOrderTemplate]:
     """
     Create default conditional order templates for common use cases.
 
@@ -174,7 +176,7 @@ class ConditionalOrderTemplateRegistry:
     for generating conditional orders.
     """
 
-    def __init__(self, templates: Optional[Dict[str, ConditionalOrderTemplate]] = None):
+    def __init__(self, templates: dict[str, ConditionalOrderTemplate] | None = None):
         """
         Initialize the template registry.
 
@@ -242,7 +244,7 @@ class ConditionalOrderTemplateRegistry:
             name for name, template in self.templates.items() if template.order_type == order_type
         ]
 
-    def get_all_templates(self) -> Dict[str, ConditionalOrderTemplate]:
+    def get_all_templates(self) -> dict[str, ConditionalOrderTemplate]:
         """
         Get all registered templates.
 

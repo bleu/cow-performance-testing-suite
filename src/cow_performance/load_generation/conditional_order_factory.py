@@ -9,7 +9,6 @@ import random
 import secrets
 import time
 from decimal import Decimal
-from typing import Optional, Tuple
 
 from .abi_encoding import (
     encode_good_after_time_data,
@@ -25,8 +24,8 @@ from .conditional_order_schema import (
     TWAPOrderParameters,
 )
 from .handlers import get_composable_cow_address, get_handler_address
-from .order_schema import OrderBalance
 from .oracles import OracleRegistry
+from .order_schema import OrderBalance
 from .token_pair import TokenPair, TokenPairRegistry
 
 
@@ -43,7 +42,7 @@ class ConditionalOrderFactory:
         token_pair_registry: TokenPairRegistry,
         chain_id: int,
         safe_wallet_address: str,
-        amount_range: Optional[Tuple[float, float]] = None,
+        amount_range: tuple[float, float] | None = None,
     ) -> None:
         """
         Initialize the conditional order factory.
@@ -93,7 +92,7 @@ class ConditionalOrderFactory:
         sell_amount_wei: int,
         sell_token_decimals: int,
         buy_token_decimals: int,
-        price: Optional[Decimal] = None,
+        price: Decimal | None = None,
     ) -> int:
         """
         Calculate buy amount based on sell amount and price.
@@ -170,8 +169,8 @@ class ConditionalOrderFactory:
 
     def create_twap_order(
         self,
-        token_pair: Optional[TokenPair] = None,
-        total_amount: Optional[float] = None,
+        token_pair: TokenPair | None = None,
+        total_amount: float | None = None,
         num_parts: int = 3,
         interval_seconds: int = 240,
         start_delay_seconds: int = 10,
@@ -248,8 +247,8 @@ class ConditionalOrderFactory:
 
     def create_stop_loss_order(
         self,
-        token_pair: Optional[TokenPair] = None,
-        sell_amount: Optional[float] = None,
+        token_pair: TokenPair | None = None,
+        sell_amount: float | None = None,
         strike_percentage: float = 90.0,
         valid_duration: int = 3600,
     ) -> ConditionalOrder:
@@ -333,8 +332,8 @@ class ConditionalOrderFactory:
 
     def create_good_after_time_order(
         self,
-        token_pair: Optional[TokenPair] = None,
-        sell_amount: Optional[float] = None,
+        token_pair: TokenPair | None = None,
+        sell_amount: float | None = None,
         delay_seconds: int = 300,
         valid_duration: int = 3600,
     ) -> ConditionalOrder:
@@ -407,7 +406,7 @@ class ConditionalOrderFactory:
     def create_batch_conditional_orders(
         self,
         count: int,
-        order_types: Optional[list[str]] = None,
+        order_types: list[str] | None = None,
     ) -> list[ConditionalOrder]:
         """
         Generate batch of mixed conditional orders.
@@ -442,7 +441,7 @@ class ConditionalOrderFactory:
                 order = self.create_twap_order()
             elif order_type == "stop_loss":
                 order = self.create_stop_loss_order()
-            elif order_type == "good_after_time":
+            else:  # good_after_time
                 order = self.create_good_after_time_order()
 
             orders.append(order)

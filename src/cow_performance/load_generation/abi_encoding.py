@@ -69,6 +69,7 @@ def decode_twap_data(static_input: str) -> dict:
     if static_input.startswith("0x"):
         static_input = static_input[2:]
 
+    # pylint: disable=unsubscriptable-object
     decoded = decode(
         [
             "address",
@@ -95,7 +96,7 @@ def decode_twap_data(static_input: str) -> dict:
         "n": decoded[6],
         "t": decoded[7],
         "span": decoded[8],
-        "appData": "0x" + decoded[9].hex(),
+        "appData": "0x" + decoded[9].hex(),  # pylint: disable=no-member
     }
 
 
@@ -160,6 +161,7 @@ def decode_stop_loss_data(static_input: str) -> dict:
     if static_input.startswith("0x"):
         static_input = static_input[2:]
 
+    # pylint: disable=unsubscriptable-object
     decoded = decode(
         [
             "address",
@@ -184,7 +186,7 @@ def decode_stop_loss_data(static_input: str) -> dict:
         "buyToken": decoded[1],
         "sellAmount": decoded[2],
         "buyAmount": decoded[3],
-        "appData": "0x" + decoded[4].hex(),
+        "appData": "0x" + decoded[4].hex(),  # pylint: disable=no-member
         "receiver": decoded[5],
         "isSellOrder": decoded[6],
         "isPartiallyFillable": decoded[7],
@@ -253,6 +255,7 @@ def decode_good_after_time_data(static_input: str) -> dict:
     if static_input.startswith("0x"):
         static_input = static_input[2:]
 
+    # pylint: disable=unsubscriptable-object
     decoded = decode(
         [
             "address",
@@ -277,7 +280,7 @@ def decode_good_after_time_data(static_input: str) -> dict:
         "sellAmount": decoded[3],
         "buyAmount": decoded[4],
         "validTo": decoded[5],
-        "appData": "0x" + decoded[6].hex(),
+        "appData": "0x" + decoded[6].hex(),  # pylint: disable=no-member
         "validFrom": decoded[7],
         "buyTokenBalance": decoded[8],
         "sellTokenBalance": decoded[9],

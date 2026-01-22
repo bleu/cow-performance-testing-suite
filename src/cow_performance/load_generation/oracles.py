@@ -6,13 +6,11 @@ to determine when price conditions are met on Ethereum mainnet.
 Additional networks can be added to the registry as needed.
 """
 
-from typing import Dict, Optional
-
 from web3 import Web3
 
 # Mainnet Chainlink oracle addresses (Ethereum mainnet - chain ID 1)
 # These oracles provide USD prices for various tokens
-MAINNET_ORACLES: Dict[str, str] = {
+MAINNET_ORACLES: dict[str, str] = {
     "WETH": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",  # ETH/USD
     "DAI": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",  # DAI/USD
     "USDC": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",  # USDC/USD
@@ -24,7 +22,7 @@ MAINNET_ORACLES: Dict[str, str] = {
 }
 
 # Network registry - expandable for future networks
-ORACLE_REGISTRY: Dict[int, Dict[str, str]] = {
+ORACLE_REGISTRY: dict[int, dict[str, str]] = {
     1: MAINNET_ORACLES,  # Ethereum Mainnet
 }
 
@@ -80,7 +78,7 @@ class OracleRegistry:
         address = self.oracles[token_symbol]
         return Web3.to_checksum_address(address)
 
-    def get_oracle_for_token_address(self, token_address: str) -> Optional[str]:
+    def get_oracle_for_token_address(self, token_address: str) -> str | None:
         """
         Get oracle address by token address (if available).
 
@@ -122,7 +120,7 @@ class OracleRegistry:
         """
         return list(self.oracles.keys())
 
-    def get_all_oracles(self) -> Dict[str, str]:
+    def get_all_oracles(self) -> dict[str, str]:
         """
         Get all oracle addresses for the current chain.
 
@@ -130,8 +128,7 @@ class OracleRegistry:
             Dictionary mapping token symbols to oracle addresses
         """
         return {
-            symbol: Web3.to_checksum_address(address)
-            for symbol, address in self.oracles.items()
+            symbol: Web3.to_checksum_address(address) for symbol, address in self.oracles.items()
         }
 
 

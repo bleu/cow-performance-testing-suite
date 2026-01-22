@@ -5,12 +5,10 @@ This module provides handler contract addresses for different order types
 on Ethereum mainnet. Additional networks can be added to the registry as needed.
 """
 
-from typing import Dict
-
 from web3 import Web3
 
 # Mainnet handler addresses (Ethereum mainnet - chain ID 1)
-MAINNET_HANDLERS: Dict[str, str] = {
+MAINNET_HANDLERS: dict[str, str] = {
     "twap": "0x6cF1e9cA41f7611dEf408122793c358a3d11E5a5",
     "stop_loss": "0x412c36e5011cd2517016d243a2dfb37f73a242e7",
     "good_after_time": "0xdaf33924925e03c9cc3a10d434016d6cfad0add5",
@@ -20,11 +18,11 @@ MAINNET_HANDLERS: Dict[str, str] = {
 MAINNET_COMPOSABLE_COW = "0xfdaFc9d1902f4e0b84f65F49f244b32b31013b74"
 
 # Network registry - expandable for future networks
-HANDLER_REGISTRY: Dict[int, Dict[str, str]] = {
+HANDLER_REGISTRY: dict[int, dict[str, str]] = {
     1: MAINNET_HANDLERS,  # Ethereum Mainnet
 }
 
-COMPOSABLE_COW_REGISTRY: Dict[int, str] = {
+COMPOSABLE_COW_REGISTRY: dict[int, str] = {
     1: MAINNET_COMPOSABLE_COW,
 }
 
@@ -53,8 +51,7 @@ def get_handler_address(handler_type: str, chain_id: int) -> str:
 
     if handler_type not in handlers:
         raise ValueError(
-            f"Unknown handler type: {handler_type}. "
-            f"Supported types: {list(handlers.keys())}"
+            f"Unknown handler type: {handler_type}. " f"Supported types: {list(handlers.keys())}"
         )
 
     address = handlers[handler_type]
