@@ -32,5 +32,10 @@ repos:
           - types-pyyaml
           - types-tabulate
           - pydantic
+          - web3
+          - eth-account
+          - eth-abi
+          - typer
+          - rich
         args: [--config-file=pyproject.toml]
         files: ^src/
