@@ -43,7 +43,7 @@ pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
 # Code quality
 black = "^23.12.0"
-ruff = "^0.1.0"
+ruff = "^0.14.13"
 mypy = "^1.7.0"
 # Pre-commit hooks
 pre-commit = "^3.6.0"
@@ -95,11 +95,11 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "UP007",  # Use X | Y syntax - disabled for Typer 0.9 compatibility
-    "UP045",  # Use X | None - disabled for Typer 0.9 compatibility
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"src/cow_performance/cli/*.py" = ["UP"]  # Typer requires old-style Optional
 
 [tool.mypy]
 python_version = "3.11"
