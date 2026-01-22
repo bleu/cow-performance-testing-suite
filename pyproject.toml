@@ -95,11 +95,11 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
     "UP007",  # Use X | Y syntax - disabled for Typer 0.9 compatibility
+    "UP045",  # Use X | None - disabled for Typer 0.9 compatibility
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"src/cow_performance/cli/*.py" = ["UP045"]  # Typer requires Optional syntax
 
 [tool.mypy]
 python_version = "3.11"
