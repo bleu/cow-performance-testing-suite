@@ -60,12 +60,14 @@ def order_factory(token_registry):
 
 
 @pytest.fixture
-def conditional_order_factory(token_registry, composable_cow_contract):
+def conditional_order_factory(token_registry, chain_id):
     """Create conditional order factory."""
+    # Use a dummy Safe wallet address for testing
+    dummy_safe_address = "0x0000000000000000000000000000000000000001"
     return ConditionalOrderFactory(
-        token_registry=token_registry,
-        composable_cow_address=composable_cow_contract,
-        chain_id=1,
+        token_pair_registry=token_registry,
+        chain_id=chain_id,
+        safe_wallet_address=dummy_safe_address,
     )
 
 
@@ -78,7 +80,9 @@ def order_signer(chain_id, settlement_contract):
 @pytest.fixture
 def conditional_order_signer(chain_id, composable_cow_contract):
     """Create conditional order signer."""
-    return ConditionalOrderSigner(chain_id, composable_cow_contract)
+    return ConditionalOrderSigner(
+        chain_id=chain_id, composable_cow_contract=composable_cow_contract
+    )
 
 
 @pytest.fixture

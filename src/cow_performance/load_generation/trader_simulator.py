@@ -296,9 +296,10 @@ class TraderSimulator:
     async def _submit_stop_loss_order(self) -> None:
         """Generate and submit a stop-loss order."""
         # Generate stop-loss order
-        stop_loss_params, conditional_params = (
-            self.conditional_order_factory.create_stop_loss_order()
-        )
+        (
+            stop_loss_params,
+            conditional_params,
+        ) = self.conditional_order_factory.create_stop_loss_order()
 
         # Track order
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
@@ -330,9 +331,10 @@ class TraderSimulator:
     async def _submit_good_after_time_order(self) -> None:
         """Generate and submit a good-after-time order."""
         # Generate good-after-time order
-        gat_params, conditional_params = (
-            self.conditional_order_factory.create_good_after_time_order()
-        )
+        (
+            gat_params,
+            conditional_params,
+        ) = self.conditional_order_factory.create_good_after_time_order()
 
         # Track order
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID

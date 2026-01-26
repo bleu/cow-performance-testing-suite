@@ -42,9 +42,37 @@ jobs:
       - name: Install project
         run: poetry install --no-interaction
 
-      - name: Run tests
+      - name: Create .env file for docker-compose
+        run: |
+          echo "ETH_RPC_URL=${{ secrets.ETH_RPC_URL }}" > .env
+        if: secrets.ETH_RPC_URL != ''
+
+      - name: Start docker-compose services
+        run: |
+          docker compose up -d
+          echo "Waiting for services to be ready..."
+          sleep 60
+        if: secrets.ETH_RPC_URL != ''
+
+      - name: Check service health
+        run: |
+          docker compose ps
+          curl --retry 10 --retry-delay 5 --retry-connrefused http://localhost:8080/api/v1/version || true
+        if: secrets.ETH_RPC_URL != ''
+
+      - name: Run tests (with E2E)
+        run: |
+          poetry run pytest tests/ -v --cov=src/cow_performance --cov-report=xml --cov-report=term-missing
+        if: secrets.ETH_RPC_URL != ''
+
+      - name: Run tests (without E2E)
         run: |
           poetry run pytest tests/ -v -m "not e2e" --cov=src/cow_performance --cov-report=xml --cov-report=term-missing
+        if: secrets.ETH_RPC_URL == ''
+
+      - name: Stop docker-compose services
+        run: docker compose down -v
+        if: always() && secrets.ETH_RPC_URL != ''
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
