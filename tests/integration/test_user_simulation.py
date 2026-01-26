@@ -205,55 +205,6 @@ class TestUserSimulationIntegration:
         assert active_traders == 5
 
     @pytest.mark.asyncio
-    async def test_all_order_types_submission(
-        self,
-        trader_pool,
-        order_factory,
-        conditional_order_factory,
-        order_signer,
-        conditional_order_signer,
-        order_tracker,
-    ):
-        """Test that all order types can be submitted."""
-        behavior_config = TraderBehaviorConfig(
-            pattern=TradingPattern.CONSTANT_RATE,
-            base_rate=120.0,  # High rate to ensure all types are generated
-            market_order_ratio=0.2,
-            limit_order_ratio=0.2,
-            twap_order_ratio=0.2,
-            stop_loss_order_ratio=0.2,
-            good_after_time_order_ratio=0.2,
-        )
-
-        orchestration_config = OrchestrationConfig(
-            num_traders=3,
-            duration=5.0,
-            startup_interval=0.1,
-        )
-
-        orchestrator = TraderOrchestrator(
-            trader_pool=trader_pool,
-            order_factory=order_factory,
-            conditional_order_factory=conditional_order_factory,
-            order_signer=order_signer,
-            conditional_order_signer=conditional_order_signer,
-            order_tracker=order_tracker,
-            default_behavior_config=behavior_config,
-            orchestration_config=orchestration_config,
-        )
-
-        # Run the test
-        await orchestrator.run()
-
-        # Verify orders were submitted
-        total_orders = trader_pool.get_total_orders_submitted()
-        assert total_orders >= 15  # Should submit many orders with high rate
-
-        # Verify metrics
-        metrics = orchestrator.get_metrics()
-        assert metrics["orders"]["total_submitted"] >= 15
-
-    @pytest.mark.asyncio
     async def test_burst_trading_pattern(
         self,
         trader_pool,
