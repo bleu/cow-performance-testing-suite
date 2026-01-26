@@ -5,9 +5,10 @@ This module provides functions to submit TWAP, Stop-Loss, and Good-After-Time
 orders to the ComposableCow contract on-chain.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from web3 import Web3
+from web3.types import HexStr
 
 from .conditional_order_schema import ConditionalOrder
 from .safe_wallet import SafeWallet
@@ -136,8 +137,10 @@ def submit_conditional_order(
         args=[
             {
                 "handler": Web3.to_checksum_address(conditional_order.params.handler),
-                "salt": Web3.to_bytes(hexstr=conditional_order.params.salt),
-                "staticInput": Web3.to_bytes(hexstr=conditional_order.params.staticInput),
+                "salt": Web3.to_bytes(hexstr=cast(HexStr, conditional_order.params.salt)),
+                "staticInput": Web3.to_bytes(
+                    hexstr=cast(HexStr, conditional_order.params.staticInput)
+                ),
             },
             dispatch,
         ],
@@ -185,8 +188,10 @@ def get_tradeable_order(
             Web3.to_checksum_address(owner),
             {
                 "handler": Web3.to_checksum_address(conditional_order_params["handler"]),
-                "salt": Web3.to_bytes(hexstr=conditional_order_params["salt"]),
-                "staticInput": Web3.to_bytes(hexstr=conditional_order_params["staticInput"]),
+                "salt": Web3.to_bytes(hexstr=cast(HexStr, conditional_order_params["salt"])),
+                "staticInput": Web3.to_bytes(
+                    hexstr=cast(HexStr, conditional_order_params["staticInput"])
+                ),
             },
         ).call()
 
@@ -231,8 +236,10 @@ def remove_conditional_order(
             Web3.to_checksum_address(safe_wallet.address),
             {
                 "handler": Web3.to_checksum_address(conditional_order_params["handler"]),
-                "salt": Web3.to_bytes(hexstr=conditional_order_params["salt"]),
-                "staticInput": Web3.to_bytes(hexstr=conditional_order_params["staticInput"]),
+                "salt": Web3.to_bytes(hexstr=cast(HexStr, conditional_order_params["salt"])),
+                "staticInput": Web3.to_bytes(
+                    hexstr=cast(HexStr, conditional_order_params["staticInput"])
+                ),
             },
         ],
     )

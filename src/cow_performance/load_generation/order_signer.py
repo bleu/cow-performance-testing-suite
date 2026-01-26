@@ -108,10 +108,10 @@ class OrderSigner:
 
         # Sign the typed data
         encoded_data = encode_typed_data(full_message=typed_data)
-        signed_message = trader_account.sign_message(encoded_data)
+        signed_message = trader_account.sign_message(encoded_data)  # type: ignore[no-untyped-call]
 
         # Create SignedOrder
-        return SignedOrder(
+        return SignedOrder(  # type: ignore[call-arg]
             sellToken=order_params.sellToken,
             buyToken=order_params.buyToken,
             sellAmount=order_params.sellAmount,
@@ -199,7 +199,7 @@ class OrderSigner:
         )
 
         # Verify the recovered address matches the order owner
-        return recovered_address.lower() == signed_order.from_.lower()
+        return bool(recovered_address.lower() == signed_order.from_.lower())
 
 
 class ConditionalOrderSigner:
@@ -325,9 +325,9 @@ class ConditionalOrderSigner:
         # Create final hash with domain separator
         final_hash = Web3.keccak(b"\x19\x01" + domain_separator + safe_tx_hash)
 
-        # Sign the hash
-        signed_message = trader_account.sign_message_hash(final_hash)
-        return signed_message.signature.hex()
+        # Sign the hash using signHash (internal eth_account method)
+        signed_message = trader_account.signHash(final_hash)  # type: ignore[no-untyped-call]
+        return str(signed_message.signature.hex())
 
     def _get_safe_domain_separator(self, safe_address: str) -> bytes:
         """

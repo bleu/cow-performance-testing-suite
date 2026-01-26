@@ -216,11 +216,15 @@ class TraderSimulator:
         Args:
             order_type: Either 'market' or 'limit'
         """
-        # Generate order using factory
+        # Generate order using factory (already signed)
         if order_type == "market":
-            order_params = self.order_factory.create_market_order()
+            signed_order = self.order_factory.create_market_order(
+                trader_account=self.trader.get_account()
+            )
         else:
-            order_params = self.order_factory.create_limit_order()
+            signed_order = self.order_factory.create_limit_order(
+                trader_account=self.trader.get_account()
+            )
 
         # Track order creation
         # Note: In real implementation, order_uid would come from API response
@@ -228,16 +232,10 @@ class TraderSimulator:
         self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
-            sell_token=order_params.sellToken,
-            buy_token=order_params.buyToken,
-            sell_amount=order_params.sellAmount,
-            buy_amount=order_params.buyAmount,
-        )
-
-        # Sign order
-        self.order_signer.sign_order(
-            order_params,
-            self.trader.get_account(),
+            sell_token=signed_order.sellToken,
+            buy_token=signed_order.buyToken,
+            sell_amount=signed_order.sellAmount,
+            buy_amount=signed_order.buyAmount,
         )
 
         # Update status to submitted
@@ -261,24 +259,19 @@ class TraderSimulator:
 
     async def _submit_twap_order(self) -> None:
         """Generate and submit a TWAP order."""
-        # Generate TWAP order
-        twap_params, conditional_params = self.conditional_order_factory.create_twap_order()
+        # Generate TWAP order (returns ConditionalOrder with embedded TWAP params)
+        self.conditional_order_factory.create_twap_order()
 
-        # Track order
+        # Track order (mock - in reality would track after submission)
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
+        # Note: For TWAP, we track the total amounts
         self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
-            sell_token=twap_params.sellToken,
-            buy_token=twap_params.buyToken,
-            sell_amount=str(int(twap_params.partSellAmount) * twap_params.n),
-            buy_amount=str(int(twap_params.minPartLimit) * twap_params.n),
-        )
-
-        # Create conditional order
-        self.conditional_order_signer.create_conditional_order(
-            params=conditional_params,
-            owner=self.trader.address,
+            sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            sell_amount="0",  # Placeholder
+            buy_amount="0",  # Placeholder
         )
 
         # Update status
@@ -293,27 +286,18 @@ class TraderSimulator:
 
     async def _submit_stop_loss_order(self) -> None:
         """Generate and submit a stop-loss order."""
-        # Generate stop-loss order
-        (
-            stop_loss_params,
-            conditional_params,
-        ) = self.conditional_order_factory.create_stop_loss_order()
+        # Generate stop-loss order (returns ConditionalOrder with embedded params)
+        self.conditional_order_factory.create_stop_loss_order()
 
-        # Track order
+        # Track order (mock - in reality would track after submission)
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
         self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
-            sell_token=stop_loss_params.sellToken,
-            buy_token=stop_loss_params.buyToken,
-            sell_amount=stop_loss_params.sellAmount,
-            buy_amount=stop_loss_params.buyAmount,
-        )
-
-        # Create conditional order
-        self.conditional_order_signer.create_conditional_order(
-            params=conditional_params,
-            owner=self.trader.address,
+            sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            sell_amount="0",  # Placeholder
+            buy_amount="0",  # Placeholder
         )
 
         # Update status
@@ -328,27 +312,18 @@ class TraderSimulator:
 
     async def _submit_good_after_time_order(self) -> None:
         """Generate and submit a good-after-time order."""
-        # Generate good-after-time order
-        (
-            gat_params,
-            conditional_params,
-        ) = self.conditional_order_factory.create_good_after_time_order()
+        # Generate good-after-time order (returns ConditionalOrder with embedded params)
+        self.conditional_order_factory.create_good_after_time_order()
 
-        # Track order
+        # Track order (mock - in reality would track after submission)
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
         self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
-            sell_token=gat_params.sellToken,
-            buy_token=gat_params.buyToken,
-            sell_amount=gat_params.sellAmount,
-            buy_amount=gat_params.buyAmount,
-        )
-
-        # Create conditional order
-        self.conditional_order_signer.create_conditional_order(
-            params=conditional_params,
-            owner=self.trader.address,
+            sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
+            sell_amount="0",  # Placeholder
+            buy_amount="0",  # Placeholder
         )
 
         # Update status

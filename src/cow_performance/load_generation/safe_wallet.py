@@ -7,10 +7,12 @@ enabling conditional orders (TWAP, Stop-Loss) that require Safe wallet owners.
 
 import secrets
 from dataclasses import dataclass
+from typing import cast
 
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
 from web3.contract import Contract
+from web3.types import HexStr
 
 # Safe contract addresses on Ethereum mainnet
 # These are the official Safe contracts that exist on mainnet and our fork
@@ -172,7 +174,7 @@ class SafeWallet:
         )
 
         # Sign and send transaction
-        signed_tx = web3.eth.account.sign_transaction(tx, owner.key)
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key=owner.key)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
@@ -217,7 +219,7 @@ class SafeWallet:
 
     def get_nonce(self) -> int:
         """Get the current Safe nonce."""
-        return self.contract.functions.nonce().call()
+        return int(self.contract.functions.nonce().call())
 
     def exec_transaction(self, to: str, value: int, data: bytes | str, operation: int = 0) -> bytes:
         """
@@ -234,7 +236,7 @@ class SafeWallet:
         """
         # Convert data to bytes if it's a hex string
         if isinstance(data, str):
-            data = Web3.to_bytes(hexstr=data)
+            data = Web3.to_bytes(hexstr=cast(HexStr, data))
 
         nonce = self.get_nonce()
 
@@ -250,15 +252,19 @@ class SafeWallet:
             b"".join(
                 [
                     safe_tx_type_hash,
-                    Web3.to_bytes(hexstr=to).rjust(32, b"\x00"),
+                    Web3.to_bytes(hexstr=cast(HexStr, to)).rjust(32, b"\x00"),
                     value.to_bytes(32, byteorder="big"),
                     Web3.keccak(data),
                     operation.to_bytes(32, byteorder="big"),
                     (0).to_bytes(32, byteorder="big"),  # safeTxGas
                     (0).to_bytes(32, byteorder="big"),  # baseGas
                     (0).to_bytes(32, byteorder="big"),  # gasPrice
-                    Web3.to_bytes(hexstr="0x" + "00" * 20).rjust(32, b"\x00"),  # gasToken
-                    Web3.to_bytes(hexstr="0x" + "00" * 20).rjust(32, b"\x00"),  # refundReceiver
+                    Web3.to_bytes(hexstr=cast(HexStr, "0x" + "00" * 20)).rjust(
+                        32, b"\x00"
+                    ),  # gasToken
+                    Web3.to_bytes(hexstr=cast(HexStr, "0x" + "00" * 20)).rjust(
+                        32, b"\x00"
+                    ),  # refundReceiver
                     nonce.to_bytes(32, byteorder="big"),
                 ]
             )
@@ -279,7 +285,7 @@ class SafeWallet:
         )
 
         # Sign with owner
-        signature = self.owner.signHash(message_hash)
+        signature = self.owner.signHash(message_hash)  # type: ignore[no-untyped-call]
 
         # Format signature for Safe (v, r, s)
         # Safe expects: r (32) + s (32) + v (1)
@@ -310,7 +316,7 @@ class SafeWallet:
         )
 
         # Sign and send
-        signed_tx = self.web3.eth.account.sign_transaction(tx, self.owner.key)
+        signed_tx = self.web3.eth.account.sign_transaction(tx, private_key=self.owner.key)
         tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
         self.web3.eth.wait_for_transaction_receipt(tx_hash)
 
@@ -340,14 +346,14 @@ class SafeWallet:
         final_hash = Web3.keccak(b"".join([b"\x19\x01", domain_separator, safe_message_hash]))
 
         # Sign with owner
-        signature = self.owner.signHash(final_hash)
+        signature = self.owner.signHash(final_hash)  # type: ignore[no-untyped-call]
 
         # Format signature for Safe (v, r, s)
         r = signature.r.to_bytes(32, byteorder="big")
         s = signature.s.to_bytes(32, byteorder="big")
         v = signature.v.to_bytes(1, byteorder="big")
 
-        return r + s + v
+        return bytes(r + s + v)
 
     def approve_token(self, token_address: str, spender: str, amount: int) -> bytes:
         """
@@ -367,7 +373,7 @@ class SafeWallet:
         # Encode parameters
         approve_data = (
             approve_selector
-            + Web3.to_bytes(hexstr=spender).rjust(32, b"\x00")
+            + Web3.to_bytes(hexstr=cast(HexStr, spender)).rjust(32, b"\x00")
             + amount.to_bytes(32, byteorder="big")
         )
 
