@@ -132,7 +132,10 @@ class OrderFactory:
             Fee amount in wei
         """
         fee = int(sell_amount_wei * self.fee_percentage)
-        return max(1, fee)  # Ensure at least 1 wei
+        # Allow zero fees when fee_percentage is 0 (required for some test environments)
+        if self.fee_percentage == 0:
+            return 0
+        return max(1, fee)  # Ensure at least 1 wei for non-zero fees
 
     def _get_valid_to_timestamp(self) -> int:
         """

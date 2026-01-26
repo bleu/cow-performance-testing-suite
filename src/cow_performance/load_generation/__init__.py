@@ -2,7 +2,7 @@
 Load generation module for CoW Protocol performance testing.
 
 This module provides order generation, token pair management, validation,
-and template-based order creation for load testing CoW Protocol.
+template-based order creation, and user simulation for load testing CoW Protocol.
 """
 
 from .abi_encoding import (
@@ -53,11 +53,13 @@ from .order_schema import (
     get_order_domain,
     get_order_types,
 )
+from .order_signer import ConditionalOrderSigner, OrderSigner
 from .order_templates import (
     OrderTemplate,
     OrderTemplateRegistry,
     create_default_templates,
 )
+from .order_tracker import OrderMetadata, OrderMetrics, OrderStatus, OrderTracker
 from .order_validation import (
     OrderValidationError,
     assert_valid_order,
@@ -74,6 +76,19 @@ from .token_pair import (
     create_mainnet_token_registry,
     create_polygon_token_registry,
 )
+from .composable_cow import (
+    get_tradeable_order,
+    remove_conditional_order,
+    submit_conditional_order,
+)
+from .safe_wallet import SafeWallet, deploy_safe_wallet
+from .trader_account import TraderAccount, TraderPool
+from .trader_orchestrator import (
+    OrchestrationConfig,
+    TraderOrchestrator,
+    run_load_test,
+)
+from .trader_simulator import TraderBehaviorConfig, TraderSimulator, TradingPattern
 
 __all__ = [
     # Order schema
@@ -134,4 +149,24 @@ __all__ = [
     "decode_twap_data",
     "decode_stop_loss_data",
     "decode_good_after_time_data",
+    # User simulation
+    "TraderAccount",
+    "TraderPool",
+    "SafeWallet",
+    "deploy_safe_wallet",
+    "submit_conditional_order",
+    "get_tradeable_order",
+    "remove_conditional_order",
+    "OrderSigner",
+    "ConditionalOrderSigner",
+    "OrderStatus",
+    "OrderMetadata",
+    "OrderMetrics",
+    "OrderTracker",
+    "TradingPattern",
+    "TraderBehaviorConfig",
+    "TraderSimulator",
+    "OrchestrationConfig",
+    "TraderOrchestrator",
+    "run_load_test",
 ]
