@@ -243,25 +243,65 @@ docker system prune -a
 
 We use the following tools to maintain code quality:
 
-- **Black** for code formatting
-- **Ruff** for linting
-- **MyPy** for type checking
+- **Black** for code formatting (v23.12.0)
+- **Ruff** for linting (v0.14.13)
+- **MyPy** for type checking (v1.7+)
 - **Pytest** for testing
+- **Pre-commit** hooks for automated checks
 
-Run all checks:
+#### Running Lint Checks
+
+**Check for issues:**
 ```bash
-# Format code
-poetry run black src/ tests/
+# Check code formatting
+poetry run black --check --diff src/ tests/
 
-# Lint
+# Check linting
 poetry run ruff check src/ tests/
 
-# Type check
-poetry run mypy src/
+# Check types
+poetry run mypy src/ --show-error-codes --pretty
 
-# Run tests
+# Run all checks at once
+poetry run pre-commit run --all-files
+```
+
+#### Auto-fixing Issues
+
+**Fix linting and formatting automatically:**
+```bash
+# Auto-format code with Black
+poetry run black src/ tests/
+
+# Auto-fix Ruff errors (safe fixes)
+poetry run ruff check --fix src/ tests/
+
+# Auto-fix Ruff errors (including unsafe fixes for unused variables)
+poetry run ruff check --fix --unsafe-fixes src/ tests/
+
+# Run all checks and auto-fix what's possible
+poetry run pre-commit run --all-files
+```
+
+**Important:** Always run linting checks before pushing code or after completing a feature:
+```bash
+# Complete lint workflow
+poetry run black src/ tests/
+poetry run ruff check --fix --unsafe-fixes src/ tests/
+poetry run mypy src/
 poetry run pytest
 ```
+
+#### CI/CD Integration
+
+All pull requests run the following checks automatically:
+- Pre-commit hooks (formatting, linting, basic checks)
+- Black formatting verification
+- Ruff linting
+- MyPy type checking
+- Full test suite (unit + integration, E2E if ETH_RPC_URL is configured)
+
+Make sure all checks pass locally before pushing to avoid CI failures.
 
 ## Project Structure
 
