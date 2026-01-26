@@ -19,6 +19,7 @@ aiohttp = "^3.9.0"
 # Ethereum interactions
 eth-account = "^0.11.0"
 web3 = "^6.13.0"
+eth-abi = "^5.0.0"
 # File formats
 pyyaml = "^6.0.1"
 # Metrics
@@ -42,7 +43,7 @@ pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
 # Code quality
 black = "^23.12.0"
-ruff = "^0.1.0"
+ruff = "^0.14.13"
 mypy = "^1.7.0"
 # Pre-commit hooks
 pre-commit = "^3.6.0"
@@ -78,6 +79,8 @@ extend-exclude = '''
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -94,8 +97,9 @@ ignore = [
     "UP007",  # Use X | Y syntax - disabled for Typer 0.9 compatibility
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"src/cow_performance/cli/*.py" = ["UP"]  # Typer requires old-style Optional
 
 [tool.mypy]
 python_version = "3.11"
@@ -139,6 +143,9 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:typer.completion",
 ]
 
 [tool.coverage.run]

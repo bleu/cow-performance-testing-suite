@@ -1,0 +1,400 @@
+"""
+Order factory for generating CoW Protocol orders.
+
+This module provides the OrderFactory class which generates realistic market and limit
+orders with configurable parameters, token pairs, and amounts.
+"""
+
+import random
+import time
+from decimal import Decimal
+
+from eth_account import Account
+from eth_account.signers.local import LocalAccount
+
+from .order_schema import (
+    OrderBalance,
+    OrderKind,
+    OrderParameters,
+    SignedOrder,
+    SigningScheme,
+)
+from .order_validation import assert_valid_order
+from .token_pair import TokenPair, TokenPairRegistry
+
+
+class OrderFactory:
+    """
+    Factory for generating CoW Protocol orders with realistic parameters.
+
+    This class provides methods to create market and limit orders with configurable
+    parameters including token pairs, amounts, and validity duration.
+    """
+
+    def __init__(
+        self,
+        token_pair_registry: TokenPairRegistry,
+        chain_id: int,
+        settlement_contract: str,
+        amount_range: tuple[float, float] | None = None,
+        valid_duration: int = 3600,
+        default_app_data: str = "0x0000000000000000000000000000000000000000000000000000000000000000",
+        fee_percentage: float = 0.001,
+    ) -> None:
+        """
+        Initialize the order factory.
+
+        Args:
+            token_pair_registry: Registry of available token pairs
+            chain_id: Chain ID (1 for mainnet, etc.)
+            settlement_contract: Address of CoW Protocol settlement contract
+            amount_range: Min and max amounts in token units (default: 0.1 to 10.0)
+            valid_duration: Order validity duration in seconds (default: 3600 = 1 hour)
+            default_app_data: Default appData hash (default: zero hash)
+            fee_percentage: Fee as percentage of sell amount (default: 0.1%)
+        """
+        self.token_pair_registry = token_pair_registry
+        self.chain_id = chain_id
+        self.settlement_contract = settlement_contract
+        self.amount_range = amount_range or (0.1, 10.0)
+        self.valid_duration = valid_duration
+        self.default_app_data = default_app_data
+        self.fee_percentage = fee_percentage
+
+        # Validate configuration
+        if self.amount_range[0] <= 0:
+            raise ValueError("Minimum amount must be positive")
+        if self.amount_range[0] >= self.amount_range[1]:
+            raise ValueError("Maximum amount must be greater than minimum amount")
+        if self.valid_duration <= 0:
+            raise ValueError("Valid duration must be positive")
+        if self.fee_percentage < 0 or self.fee_percentage > 1:
+            raise ValueError("Fee percentage must be between 0 and 1")
+
+    def _generate_random_amount(self, min_amount: float, max_amount: float) -> float:
+        """
+        Generate a random amount within the specified range.
+
+        Args:
+            min_amount: Minimum amount
+            max_amount: Maximum amount
+
+        Returns:
+            Random amount in the range
+        """
+        # Use log scale for more realistic distribution
+        log_min = Decimal(str(min_amount)).ln()
+        log_max = Decimal(str(max_amount)).ln()
+        log_amount = float(log_min) + random.random() * float(log_max - log_min)
+        return float(Decimal(str(log_amount)).exp())
+
+    def _calculate_buy_amount(
+        self,
+        sell_amount_wei: int,
+        sell_token_decimals: int,
+        buy_token_decimals: int,
+        price: Decimal | None = None,
+    ) -> int:
+        """
+        Calculate buy amount based on sell amount and price.
+
+        Args:
+            sell_amount_wei: Sell amount in wei
+            sell_token_decimals: Decimals of sell token
+            buy_token_decimals: Decimals of buy token
+            price: Price of sell token in buy token (if None, use 1:1)
+
+        Returns:
+            Buy amount in wei
+        """
+        # Convert to decimal
+        sell_amount_decimal = Decimal(sell_amount_wei) / Decimal(10**sell_token_decimals)
+
+        # Apply price (default to 1:1 ratio)
+        if price is None:
+            price = Decimal(1)
+
+        buy_amount_decimal = sell_amount_decimal * price
+
+        # Convert to wei
+        buy_amount_wei = int(buy_amount_decimal * Decimal(10**buy_token_decimals))
+
+        return max(1, buy_amount_wei)  # Ensure at least 1 wei
+
+    def _calculate_fee_amount(self, sell_amount_wei: int) -> int:
+        """
+        Calculate fee amount based on sell amount.
+
+        Args:
+            sell_amount_wei: Sell amount in wei
+
+        Returns:
+            Fee amount in wei
+        """
+        fee = int(sell_amount_wei * self.fee_percentage)
+        return max(1, fee)  # Ensure at least 1 wei
+
+    def _get_valid_to_timestamp(self) -> int:
+        """
+        Get validTo timestamp based on current time and valid_duration.
+
+        Returns:
+            Unix timestamp for order expiry
+        """
+        return int(time.time()) + self.valid_duration
+
+    def create_market_order(
+        self,
+        trader_account: LocalAccount,
+        token_pair: TokenPair | None = None,
+        sell_amount: float | None = None,
+        kind: OrderKind = OrderKind.SELL,
+    ) -> SignedOrder:
+        """
+        Generate a realistic market order.
+
+        Market orders use current market price (approximated as 1:1 for simplicity
+        in testing scenarios, but can be configured with actual market data).
+
+        Args:
+            trader_account: Account to sign the order
+            token_pair: Token pair to trade (if None, random selection)
+            sell_amount: Sell amount in token units (if None, random)
+            kind: Order kind (buy or sell)
+
+        Returns:
+            Signed market order ready for submission
+        """
+        # Select token pair
+        if token_pair is None:
+            token_pair = self.token_pair_registry.select_weighted_random()
+
+        # Generate sell amount
+        if sell_amount is None:
+            sell_amount = self._generate_random_amount(*self.amount_range)
+
+        # Convert to wei
+        sell_amount_wei = token_pair.sell_token.to_wei(sell_amount)
+
+        # Calculate buy amount (market orders typically use current price)
+        buy_amount_wei = self._calculate_buy_amount(
+            sell_amount_wei,
+            token_pair.sell_token.decimals,
+            token_pair.buy_token.decimals,
+            price=Decimal(1),  # Simplified 1:1 price for testing
+        )
+
+        # Calculate fee
+        fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
+
+        # Create order parameters
+        params = OrderParameters(
+            sellToken=token_pair.sell_token.address,
+            buyToken=token_pair.buy_token.address,
+            sellAmount=str(sell_amount_wei),
+            buyAmount=str(buy_amount_wei),
+            validTo=self._get_valid_to_timestamp(),
+            appData=self.default_app_data,
+            feeAmount=str(fee_amount_wei),
+            kind=kind,
+            partiallyFillable=False,
+            sellTokenBalance=OrderBalance.ERC20,
+            buyTokenBalance=OrderBalance.ERC20,
+            receiver=None,
+        )
+
+        # Validate order
+        assert_valid_order(params)
+
+        # Sign order
+        return self._sign_order(params, trader_account)
+
+    def create_limit_order(
+        self,
+        trader_account: LocalAccount,
+        token_pair: TokenPair | None = None,
+        limit_price: Decimal | None = None,
+        sell_amount: float | None = None,
+        kind: OrderKind = OrderKind.SELL,
+    ) -> SignedOrder:
+        """
+        Generate a realistic limit order.
+
+        Limit orders specify an exact price at which the order should execute.
+
+        Args:
+            trader_account: Account to sign the order
+            token_pair: Token pair to trade (if None, random selection)
+            limit_price: Limit price (sell token / buy token ratio)
+            sell_amount: Sell amount in token units (if None, random)
+            kind: Order kind (buy or sell)
+
+        Returns:
+            Signed limit order ready for submission
+        """
+        # Select token pair
+        if token_pair is None:
+            token_pair = self.token_pair_registry.select_weighted_random()
+
+        # Generate sell amount
+        if sell_amount is None:
+            sell_amount = self._generate_random_amount(*self.amount_range)
+
+        # Generate limit price if not provided
+        if limit_price is None:
+            # Generate random price variation (±10% from 1:1)
+            price_variation = Decimal(str(random.uniform(0.9, 1.1)))
+            limit_price = Decimal(1) * price_variation
+
+        # Convert to wei
+        sell_amount_wei = token_pair.sell_token.to_wei(sell_amount)
+
+        # Calculate buy amount based on limit price
+        buy_amount_wei = self._calculate_buy_amount(
+            sell_amount_wei,
+            token_pair.sell_token.decimals,
+            token_pair.buy_token.decimals,
+            price=limit_price,
+        )
+
+        # Calculate fee
+        fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
+
+        # Create order parameters
+        params = OrderParameters(
+            sellToken=token_pair.sell_token.address,
+            buyToken=token_pair.buy_token.address,
+            sellAmount=str(sell_amount_wei),
+            buyAmount=str(buy_amount_wei),
+            validTo=self._get_valid_to_timestamp(),
+            appData=self.default_app_data,
+            feeAmount=str(fee_amount_wei),
+            kind=kind,
+            partiallyFillable=False,
+            sellTokenBalance=OrderBalance.ERC20,
+            buyTokenBalance=OrderBalance.ERC20,
+            receiver=None,
+        )
+
+        # Validate order
+        assert_valid_order(params)
+
+        # Sign order
+        return self._sign_order(params, trader_account)
+
+    def _sign_order(
+        self,
+        params: OrderParameters,
+        trader_account: LocalAccount,
+    ) -> SignedOrder:
+        """
+        Sign an order using EIP-712.
+
+        Args:
+            params: Order parameters to sign
+            trader_account: Account to sign with
+
+        Returns:
+            Signed order
+        """
+        # Prepare EIP-712 typed data
+        domain_data = {
+            "name": "Gnosis Protocol",
+            "version": "v2",
+            "chainId": self.chain_id,
+            "verifyingContract": self.settlement_contract,
+        }
+
+        message_types = {
+            "Order": [
+                {"name": "sellToken", "type": "address"},
+                {"name": "buyToken", "type": "address"},
+                {"name": "receiver", "type": "address"},
+                {"name": "sellAmount", "type": "uint256"},
+                {"name": "buyAmount", "type": "uint256"},
+                {"name": "validTo", "type": "uint32"},
+                {"name": "appData", "type": "bytes32"},
+                {"name": "feeAmount", "type": "uint256"},
+                {"name": "kind", "type": "string"},
+                {"name": "partiallyFillable", "type": "bool"},
+                {"name": "sellTokenBalance", "type": "string"},
+                {"name": "buyTokenBalance", "type": "string"},
+            ]
+        }
+
+        message_data = {
+            "sellToken": params.sellToken,
+            "buyToken": params.buyToken,
+            "receiver": params.receiver or "0x0000000000000000000000000000000000000000",
+            "sellAmount": int(params.sellAmount),
+            "buyAmount": int(params.buyAmount),
+            "validTo": params.validTo,
+            "appData": params.appData,
+            "feeAmount": int(params.feeAmount),
+            "kind": params.kind.value,
+            "partiallyFillable": params.partiallyFillable,
+            "sellTokenBalance": params.sellTokenBalance.value,
+            "buyTokenBalance": params.buyTokenBalance.value,
+        }
+
+        # Sign using EIP-712 (Account.sign_typed_data is a class method)
+        signed_message = Account.sign_typed_data(
+            private_key=trader_account.key,
+            domain_data=domain_data,
+            message_types=message_types,
+            message_data=message_data,
+        )
+
+        # Create signed order
+        signed_order = SignedOrder(  # type: ignore[call-arg]
+            sellToken=params.sellToken,
+            buyToken=params.buyToken,
+            sellAmount=params.sellAmount,
+            buyAmount=params.buyAmount,
+            validTo=params.validTo,
+            appData=params.appData,
+            feeAmount=params.feeAmount,
+            kind=params.kind,
+            partiallyFillable=params.partiallyFillable,
+            sellTokenBalance=params.sellTokenBalance,
+            buyTokenBalance=params.buyTokenBalance,
+            receiver=params.receiver,
+            from_=trader_account.address,
+            signingScheme=SigningScheme.EIP712,
+            signature="0x" + signed_message.signature.hex(),
+        )
+
+        return signed_order
+
+    def create_batch_orders(
+        self,
+        trader_account: LocalAccount,
+        count: int,
+        market_order_ratio: float = 0.5,
+    ) -> list[SignedOrder]:
+        """
+        Generate a batch of mixed market and limit orders.
+
+        Args:
+            trader_account: Account to sign orders
+            count: Number of orders to generate
+            market_order_ratio: Ratio of market orders (0.0 to 1.0, default 0.5)
+
+        Returns:
+            List of signed orders
+        """
+        if count <= 0:
+            raise ValueError("Count must be positive")
+        if market_order_ratio < 0 or market_order_ratio > 1:
+            raise ValueError("Market order ratio must be between 0 and 1")
+
+        orders = []
+        for _ in range(count):
+            # Randomly decide order type based on ratio
+            if random.random() < market_order_ratio:
+                order = self.create_market_order(trader_account)
+            else:
+                order = self.create_limit_order(trader_account)
+            orders.append(order)
+
+        return orders

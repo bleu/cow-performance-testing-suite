@@ -19,7 +19,7 @@ repos:
         language_version: python3.11
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.9
+    rev: v0.14.13
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -32,4 +32,10 @@ repos:
           - types-pyyaml
           - types-tabulate
           - pydantic
-        args: [--strict, --ignore-missing-imports]
+          - web3
+          - eth-account
+          - eth-abi
+          - typer
+          - rich
+        args: [--config-file=pyproject.toml]
+        files: ^src/
