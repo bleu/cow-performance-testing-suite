@@ -122,6 +122,7 @@ module = [
     "docker.*",
     "prometheus_client.*",
     "scipy.*",
+    "pydantic_settings.*",
 ]
 ignore_missing_imports = true
 

@@ -6,7 +6,7 @@ implementation coming in M1-06.
 
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from pydantic import BaseModel, Field, field_validator
 from rich.console import Console
 from rich.table import Table

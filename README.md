@@ -51,10 +51,402 @@ Comprehensive performance testing suite for the CoW Protocol Playground, enablin
 cow-perf run --scenario light-load
 
 # View available scenarios
-cow-perf scenarios list
+cow-perf scenarios
 
 # Get help
 cow-perf --help
+```
+
+## CLI Tool Usage
+
+The `cow-perf` command-line tool provides a comprehensive interface for managing configurations, scenarios, baselines, and running performance tests.
+
+### Global Options
+
+```bash
+# Show version information
+cow-perf version
+
+# Get help for any command
+cow-perf --help
+cow-perf config --help
+cow-perf scenarios --help
+```
+
+### Configuration Management
+
+The configuration system uses YAML files and supports environment variable overrides with the `COW_` prefix.
+
+#### Show Configuration Template
+
+Display the default configuration template to understand available options:
+
+```bash
+# Show configuration template in terminal
+cow-perf config --template
+```
+
+#### Save Configuration Template
+
+Create a configuration file with default values:
+
+```bash
+# Save to default location (~/.cow-perf.yml)
+cow-perf config --save-template ~/.cow-perf.yml
+
+# Save to custom location
+cow-perf config --save-template ./my-config.yml
+
+# Save to project directory
+cow-perf config --save-template .cow-perf.yml
+```
+
+#### Configuration File Structure
+
+```yaml
+# Network settings
+network:
+  chain_id: 1  # 1=Mainnet, 100=Gnosis Chain
+  rpc_url: "https://eth.llamarpc.com"
+  settlement_contract: "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+  composable_cow_contract: "0xfdaFc9d1902f4e0b84f65F49f244b32b31013b74"
+
+# API settings
+api:
+  base_url: "http://localhost:8080"
+  timeout: 30
+  max_retries: 3
+
+# Output settings
+output:
+  format: "json"  # json, table, csv, prometheus
+  verbose: false
+  save_results: true
+  results_dir: "~/.cow-perf/results"
+
+# Default test parameters
+default_trader_count: 10
+default_duration: 60
+default_startup_interval: 0.1
+
+# Order type distribution (must sum to 1.0)
+market_order_ratio: 0.4
+limit_order_ratio: 0.4
+twap_order_ratio: 0.1
+stop_loss_order_ratio: 0.05
+good_after_time_order_ratio: 0.05
+```
+
+#### Load Configuration
+
+```bash
+# Load from specific file
+cow-perf run --config ./my-config.yml --scenario light-load
+
+# Config file search order:
+# 1. --config flag (highest priority)
+# 2. .cow-perf.yml in current directory
+# 3. ~/.cow-perf.yml in home directory
+# 4. Environment variables (COW_* prefix)
+# 5. Default values (lowest priority)
+```
+
+#### Environment Variable Overrides
+
+Override configuration values using environment variables:
+
+```bash
+# Override network settings
+export COW_NETWORK_CHAIN_ID=100
+export COW_NETWORK_RPC_URL=https://rpc.gnosischain.com
+
+# Override API settings
+export COW_API_BASE_URL=http://localhost:8080
+export COW_API_TIMEOUT=60
+
+# Override output settings
+export COW_OUTPUT_FORMAT=table
+export COW_OUTPUT_VERBOSE=true
+
+# Run with overrides
+cow-perf run --scenario light-load
+```
+
+### Scenario Management
+
+Scenarios define complete test configurations including trader count, duration, order distribution, and trading patterns.
+
+#### List Available Scenarios
+
+```bash
+# List scenarios in default directory (~/.cow-perf/scenarios)
+cow-perf scenarios
+
+# List scenarios in custom directory
+cow-perf scenarios --dir ./scenarios
+```
+
+#### Create Scenario Template
+
+Generate a scenario template file:
+
+```bash
+# Create template in current directory
+cow-perf scenarios --create-template my-scenario.yml
+
+# Create in scenarios directory
+cow-perf scenarios --create-template ~/.cow-perf/scenarios/custom-load.yml
+```
+
+#### Scenario File Structure
+
+```yaml
+# Scenario metadata
+name: "example-scenario"
+description: "Example performance test scenario"
+
+# Trader configuration
+num_traders: 10
+duration: 60  # seconds
+startup_interval: 0.1
+
+# Order type distribution (must sum to 1.0)
+market_order_ratio: 0.4
+limit_order_ratio: 0.4
+twap_order_ratio: 0.1
+stop_loss_order_ratio: 0.05
+good_after_time_order_ratio: 0.05
+
+# Trading pattern
+trading_pattern: "constant_rate"  # constant_rate, burst, or random_interval
+base_rate: 60.0  # orders per minute (for constant_rate)
+
+# Burst pattern parameters (uncomment if using burst pattern)
+# burst_size: 5
+# burst_interval: 0.1
+# quiet_period: 5.0
+
+# Random interval parameters (uncomment if using random_interval)
+# min_interval: 0.5
+# max_interval: 3.0
+```
+
+#### Validate Scenario
+
+Check if a scenario file is valid:
+
+```bash
+# Validate scenario file
+cow-perf scenarios --validate my-scenario.yml
+
+# Output shows validation results and scenario details
+```
+
+#### Trading Patterns
+
+**Constant Rate**: Submit orders at a steady rate
+- Best for: Sustained load testing
+- Parameters: `base_rate` (orders per minute)
+
+**Burst**: Submit orders in bursts with quiet periods
+- Best for: Spike testing, simulating trading volatility
+- Parameters: `burst_size`, `burst_interval`, `quiet_period`
+
+**Random Interval**: Submit orders at random intervals
+- Best for: Realistic user behavior simulation
+- Parameters: `min_interval`, `max_interval`
+
+### Baseline Management
+
+Baselines allow you to save performance test results and compare future runs for regression detection.
+
+#### List Baselines
+
+```bash
+# List all baselines in default directory
+cow-perf baselines
+
+# List baselines in custom directory
+cow-perf baselines --dir ./baselines
+
+# Output shows baseline names, dates, and key metrics
+```
+
+#### Save Baseline
+
+Create a new baseline from test results:
+
+```bash
+# Save baseline with name and results file
+cow-perf baselines --save v1.0:./results.json
+
+# Save to custom directory
+cow-perf baselines --save v1.0:./results.json --dir ./baselines
+
+# Baseline naming convention: <version>:<results-file-path>
+# Examples: v1.0:results.json, release-2.0:./output.json, baseline-2024-01:data.json
+```
+
+#### Show Baseline Details
+
+Display detailed information about a baseline:
+
+```bash
+# Show baseline details
+cow-perf baselines --show v1.0
+
+# Show from custom directory
+cow-perf baselines --show v1.0 --dir ./baselines
+
+# Output includes:
+# - Baseline name and creation date
+# - Orchestration config (traders, duration)
+# - Order statistics (total, by type)
+# - Performance metrics (orders/sec, latency)
+```
+
+#### Delete Baseline
+
+Remove a baseline:
+
+```bash
+# Delete baseline
+cow-perf baselines --delete v1.0
+
+# Delete from custom directory
+cow-perf baselines --delete v1.0 --dir ./baselines
+
+# Confirmation prompt shown before deletion
+```
+
+### Running Performance Tests
+
+Execute performance tests with configured scenarios:
+
+```bash
+# Run with predefined scenario (coming soon)
+cow-perf run --scenario light-load
+
+# Run with custom scenario file (coming soon)
+cow-perf run --scenario ./my-scenario.yml
+
+# Run with custom parameters (coming soon)
+cow-perf run --traders 20 --duration 300
+
+# Run and compare against baseline (coming soon)
+cow-perf run --scenario medium-load --baseline v1.0
+
+# Run with specific configuration (coming soon)
+cow-perf run --config ./config.yml --scenario light-load
+```
+
+### Output Formats
+
+The CLI supports multiple output formats for different use cases:
+
+```bash
+# JSON output (default) - for programmatic processing
+cow-perf run --scenario light-load --output json
+
+# Table output - human-readable terminal output
+cow-perf run --scenario light-load --output table
+
+# CSV output - for spreadsheet analysis
+cow-perf run --scenario light-load --output csv
+
+# Prometheus format - for metrics collection
+cow-perf run --scenario light-load --output prometheus
+```
+
+### Example Workflows
+
+#### Setup New Project
+
+```bash
+# 1. Create configuration file
+cow-perf config --save-template .cow-perf.yml
+
+# 2. Edit configuration as needed
+vim .cow-perf.yml
+
+# 3. Create scenarios directory
+mkdir -p scenarios
+
+# 4. Create test scenario
+cow-perf scenarios --create-template scenarios/my-test.yml
+
+# 5. Edit scenario
+vim scenarios/my-test.yml
+
+# 6. Validate scenario
+cow-perf scenarios --validate scenarios/my-test.yml
+
+# 7. Run test (when implemented)
+# cow-perf run --scenario scenarios/my-test.yml
+```
+
+#### Baseline Comparison Workflow
+
+```bash
+# 1. Run initial test and save results
+cow-perf run --scenario load-test > baseline-results.json
+
+# 2. Create baseline from results
+cow-perf baselines --save v1.0:baseline-results.json
+
+# 3. Make changes to system
+# ... deploy updates, configuration changes, etc.
+
+# 4. Run test again and compare
+cow-perf run --scenario load-test --baseline v1.0
+
+# 5. View baseline details
+cow-perf baselines --show v1.0
+```
+
+#### Multi-Environment Testing
+
+```bash
+# Test against local environment
+export COW_API_BASE_URL=http://localhost:8080
+cow-perf run --scenario load-test > local-results.json
+
+# Test against staging
+export COW_API_BASE_URL=https://staging-api.cow.fi
+cow-perf run --scenario load-test > staging-results.json
+
+# Test against production (read-only)
+export COW_API_BASE_URL=https://api.cow.fi
+cow-perf run --scenario read-only-test > prod-results.json
+
+# Compare results
+cow-perf baselines --save local:local-results.json
+cow-perf baselines --save staging:staging-results.json
+cow-perf baselines --show local
+cow-perf baselines --show staging
+```
+
+### Configuration Precedence
+
+Configuration values are resolved in the following order (highest to lowest priority):
+
+1. **Command-line flags**: `--traders 20`, `--duration 300`
+2. **Environment variables**: `COW_API_BASE_URL=...`
+3. **Scenario file**: Order ratios, trading patterns from scenario YAML
+4. **Configuration file**: Settings from `--config` or auto-discovered `.cow-perf.yml`
+5. **Default values**: Built-in defaults
+
+Example of precedence:
+
+```bash
+# Config file says: trader_count=10
+# Scenario file says: num_traders=20
+# Command line says: --traders 30
+# Result: 30 traders (command line wins)
+
+# Config file says: base_url=http://localhost:8080
+# Environment says: COW_API_BASE_URL=http://localhost:9000
+# Result: http://localhost:9000 (environment wins over config file)
 ```
 
 ## Fork Mode Environment Setup
@@ -324,38 +716,28 @@ cow-performance-testing-suite/
 
 ## Usage Examples
 
-### Running Scenarios
+For complete CLI documentation, see the [CLI Tool Usage](#cli-tool-usage) section above.
+
+### Quick Examples
 
 ```bash
-# Run predefined scenarios
-cow-perf run --scenario light-load
-cow-perf run --scenario medium-load --duration 600
+# Create configuration file
+cow-perf config --save-template .cow-perf.yml
 
-# Run custom scenario
-cow-perf run --scenario ./my-scenario.yml
-```
+# Create and validate scenario
+cow-perf scenarios --create-template my-scenario.yml
+cow-perf scenarios --validate my-scenario.yml
 
-### Baseline Management
+# List available scenarios
+cow-perf scenarios
 
-```bash
-# Create a baseline
-cow-perf baselines save my-baseline
+# Run performance test (coming soon)
+cow-perf run --scenario my-scenario.yml
 
-# List baselines
-cow-perf baselines list
-
-# Compare against baseline
-cow-perf run --scenario medium-load --baseline my-baseline
-```
-
-### Configuration
-
-```bash
-# Show current configuration
-cow-perf config show
-
-# Initialize new scenario
-cow-perf config init
+# Save and manage baselines
+cow-perf baselines --save v1.0:results.json
+cow-perf baselines
+cow-perf baselines --show v1.0
 ```
 
 ## Testing
@@ -1493,7 +1875,12 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
   - [x] Hooks orders (pre-hooks and post-hooks)
   - [x] Trader simulation and orchestration
   - [x] Order tracking and metrics
-- [ ] CLI tool interface
+- [x] CLI tool interface
+  - [x] Configuration management (YAML files, env overrides)
+  - [x] Scenario management (create, validate, list)
+  - [x] Baseline management (save, show, delete, list)
+  - [x] Run command foundation
+  - [ ] Full run command integration with TraderOrchestrator
 - [ ] Order submission strategies
 
 ### Milestone 2: Performance Benchmarking (Next)
