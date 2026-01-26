@@ -9,7 +9,9 @@ from typing import Any
 
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from web3 import Web3
 
+from cow_performance.api import OrderbookClient
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
     OrchestrationConfig,
@@ -18,7 +20,6 @@ from cow_performance.load_generation import (
     OrderTracker,
     TraderBehaviorConfig,
     TraderOrchestrator,
-    TraderPool,
     TradingPattern,
     create_mainnet_token_registry,
 )
@@ -31,6 +32,7 @@ from ..output import (
     format_metrics_table,
     save_metrics_to_file,
 )
+from ..wallet_funding import create_trader_pool_from_config, fund_trader_pool
 
 
 class GracefulShutdownHandler:
@@ -102,15 +104,105 @@ async def run_performance_test(
     # Create token registry
     token_registry = create_mainnet_token_registry()
 
-    # Create trader pool
-    trader_pool = TraderPool(num_traders=num_traders)
+    # Filter token pairs to only use funded tokens if wallet funding is enabled
+    if config.wallet.funding_enabled and config.wallet.token_balances:
+        funded_tokens = set(config.wallet.token_balances.keys())
+        all_pairs = token_registry.get_all_pairs()
+        filtered_pairs = [
+            pair
+            for pair in all_pairs
+            if pair.sell_token.symbol in funded_tokens and pair.buy_token.symbol in funded_tokens
+        ]
+
+        # Create new registry with filtered pairs
+        from cow_performance.load_generation.token_pair import TokenPairRegistry
+
+        token_registry = TokenPairRegistry(token_pairs=filtered_pairs)
+
+        if verbose and len(filtered_pairs) < len(all_pairs):
+            console.print("[cyan]Token Pairs:[/cyan]")
+            console.print(
+                f"  Filtered to {len(filtered_pairs)} pairs using funded tokens: {', '.join(sorted(funded_tokens))}"
+            )
+            console.print()
+
+    # Create trader pool based on wallet configuration
+    trader_pool = create_trader_pool_from_config(config.wallet, num_traders)
+
+    # Fund wallets if enabled (requires Anvil fork mode)
+    if config.wallet.funding_enabled:
+        if verbose:
+            console.print("[bold cyan]Wallet Funding:[/bold cyan]")
+            console.print(f"  RPC URL: {config.network.rpc_url}")
+            console.print(f"  ETH per wallet: {config.wallet.eth_balance}")
+            console.print(f"  Token balances: {config.wallet.token_balances}")
+
+        try:
+            # Connect to Web3
+            web3 = Web3(Web3.HTTPProvider(config.network.rpc_url))
+            if not web3.is_connected():
+                raise ValueError(f"Failed to connect to RPC at {config.network.rpc_url}")
+
+            if verbose:
+                console.print(
+                    f"  [green]✓[/green] Connected to RPC (chain ID: {web3.eth.chain_id})"
+                )
+
+            # Fund all traders in the pool
+            fund_trader_pool(
+                web3=web3,
+                trader_pool=trader_pool,
+                eth_balance=config.wallet.eth_balance,
+                token_balances=config.wallet.token_balances,
+                vault_relayer=config.network.vault_relayer,
+            )
+
+            if verbose:
+                console.print(f"  [green]✓[/green] Funded {trader_pool.get_pool_size()} wallets")
+                # Print wallet addresses for verification
+                for i, trader in enumerate(trader_pool.get_all_traders()):
+                    console.print(f"    Wallet {i+1}: {trader.address}")
+                console.print()
+
+        except Exception as e:
+            console.print(f"[bold red]Error funding wallets:[/bold red] {e}")
+            console.print(
+                "[yellow]Hint: Wallet funding requires Anvil running in fork mode[/yellow]"
+            )
+            raise SystemExit(1) from None
+    elif verbose and (config.wallet.private_keys or config.wallet.generate_count > 0):
+        console.print("[bold cyan]Wallet Configuration:[/bold cyan]")
+        if config.wallet.private_keys:
+            console.print(f"  Using {len(config.wallet.private_keys)} provided private keys")
+        elif config.wallet.generate_count > 0:
+            console.print(f"  Generated {config.wallet.generate_count} new wallets")
+        console.print("  [yellow]Note: Funding disabled. Wallets may not have balance.[/yellow]")
+        console.print()
 
     # Create order factories
+    # Set amount range based on wallet funding if enabled, otherwise use conservative defaults
+    if config.wallet.funding_enabled:
+        # Use up to 80% of the minimum funded token balance to avoid insufficient balance errors
+        min_token_balance = (
+            min(config.wallet.token_balances.values()) if config.wallet.token_balances else 1.0
+        )
+        amount_range = (0.1, min_token_balance * 0.8)
+    else:
+        # Conservative default for unfunded wallets
+        amount_range = (0.01, 0.1)
+
+    if verbose:
+        console.print("[cyan]Order Configuration:[/cyan]")
+        console.print(f"  Amount range: {amount_range[0]} - {amount_range[1]} tokens")
+        console.print()
+
     order_factory = OrderFactory(
         token_pair_registry=token_registry,
         chain_id=config.network.chain_id,
         settlement_contract=config.network.settlement_contract,
+        amount_range=amount_range,
         valid_duration=3600,  # 1 hour validity
+        fee_percentage=0.0,  # Zero fees (CoW Protocol calculates fees automatically)
     )
 
     # Use a dummy Safe address for conditional orders (will be replaced with actual Safe per trader)
@@ -159,8 +251,24 @@ async def run_performance_test(
         graceful_shutdown_timeout=10.0,
     )
 
-    # Create orchestrator (no API client in dry run mode)
-    api_client = None if dry_run else None  # TODO: Create API client when needed
+    # Create API client (skip in dry run mode)
+    api_client = None
+    if not dry_run:
+        api_client = OrderbookClient(
+            base_url=config.api.base_url,
+            timeout=config.api.timeout,
+            max_retries=config.api.max_retries,
+        )
+
+        if verbose:
+            console.print(f"[cyan]API Client:[/cyan] {config.api.base_url}")
+            # Check API health
+            is_healthy = await api_client.check_health()
+            if is_healthy:
+                console.print("[green]✓[/green] Orderbook API is healthy")
+            else:
+                console.print("[yellow]⚠[/yellow] Warning: Could not reach orderbook API")
+            console.print()
 
     orchestrator = TraderOrchestrator(
         trader_pool=trader_pool,
@@ -285,13 +393,16 @@ def run_command(
     console = Console()
 
     try:
+        # Merge verbose flag: CLI flag OR config setting
+        use_verbose = verbose or config.output.verbose
+
         # Run the test
         metrics = asyncio.run(
             run_performance_test(
                 config=config,
                 traders=traders,
                 duration=duration,
-                verbose=verbose,
+                verbose=use_verbose,
                 dry_run=dry_run,
             )
         )
@@ -317,6 +428,9 @@ def run_command(
         # Save results if requested
         should_save = save_results or config.output.save_results or output_file
         if should_save:
+            # Table format is for console only, convert to JSON for file saving
+            save_fmt = "json" if fmt == "table" else fmt
+
             if output_file:
                 output_path = Path(output_file)
             else:
@@ -325,11 +439,11 @@ def run_command(
                 results_dir.mkdir(parents=True, exist_ok=True)
                 filename = create_result_filename(
                     prefix="perf-test",
-                    output_format=fmt,
+                    output_format=save_fmt,
                 )
                 output_path = results_dir / filename
 
-            save_metrics_to_file(metrics, fmt, output_path)
+            save_metrics_to_file(metrics, save_fmt, output_path)
             console.print(f"\n[bold green]✓[/bold green] Results saved to: {output_path}")
 
     except KeyboardInterrupt:

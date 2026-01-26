@@ -799,6 +799,87 @@ pytest tests/integration/ -v
   - Safe wallet deployment and approvals
   - EIP-1271 signature validation
 
+### Wallet Funding Integration Tests
+
+The wallet funding integration tests verify that the automatic wallet funding system works correctly. These tests require Anvil running in fork mode.
+
+**Start Anvil in fork mode:**
+
+```bash
+# Terminal 1: Start Anvil
+anvil --fork-url https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+
+# Or use docker-compose to start the full environment
+docker compose up -d
+```
+
+**Run the wallet funding tests:**
+
+```bash
+# Run all wallet funding tests
+pytest tests/integration/test_wallet_funding.py -v
+
+# Run a specific test
+pytest tests/integration/test_wallet_funding.py::TestWalletFunding::test_fund_trader_pool -v
+```
+
+**What these tests verify:**
+
+- ✅ ETH funding from Anvil's default account
+- ✅ Token balance manipulation using storage slots (WETH, DAI, USDC)
+- ✅ Token approvals for VaultRelayer contract
+- ✅ Full trader pool funding with multiple traders
+- ✅ Error handling for unsupported tokens
+
+**Integration test with CLI:**
+
+You can also test the full CLI workflow with funded wallets:
+
+```bash
+# Create test configuration
+cat > test-funded-scenario.yml <<EOF
+network:
+  chain_id: 1
+  rpc_url: "http://localhost:8545"
+  settlement_contract: "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
+  composable_cow_contract: "0xfdaFc9d1902f4e0b84f65F49f244b32b31013b74"
+  vault_relayer: "0xC92E8bdf79f0507f65a392b0ab4667716BFE0110"
+
+api:
+  base_url: "http://localhost:8080"
+
+wallet:
+  generate_count: 2
+  funding_enabled: true
+  eth_balance: 10.0
+  token_balances:
+    WETH: 5.0
+    DAI: 5000.0
+    USDC: 5000.0
+
+output:
+  format: "table"
+  verbose: true
+  save_results: true
+
+default_trader_count: 2
+default_duration: 10
+market_order_ratio: 1.0
+limit_order_ratio: 0.0
+EOF
+
+# Run the test
+cow-perf run --config test-funded-scenario.yml
+```
+
+This will:
+1. Generate 2 new wallets
+2. Fund each wallet with 10 ETH, 5 WETH, 5000 DAI, and 5000 USDC
+3. Approve tokens for the VaultRelayer
+4. Filter token pairs to only trade funded tokens
+5. Submit orders for 10 seconds
+6. Save results to a JSON file
+
 ## End-to-End Tests
 
 This section provides comprehensive guidance for running end-to-end tests that interact with a real CoW Protocol environment running in docker-compose.

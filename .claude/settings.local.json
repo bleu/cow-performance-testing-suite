@@ -6,7 +6,8 @@
       "Bash(.venv/bin/pip install:*)",
       "Bash(.venv/bin/ruff check src/ tests/)",
       "Bash(.venv/bin/black:*)",
-      "Bash(.venv/bin/mypy:*)"
+      "Bash(.venv/bin/mypy:*)",
+      "Bash(.venv/bin/cow-perf run:*)"
     ]
   }
 }

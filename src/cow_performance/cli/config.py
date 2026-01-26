@@ -30,6 +30,53 @@ class NetworkConfig(BaseSettings):
         default="0xfdaFc9d1902f4e0b84f65F49f244b32b31013b74",
         description="ComposableCow contract address for conditional orders",
     )
+    vault_relayer: str = Field(
+        default="0xC92E8bdf79f0507f65a392b0ab4667716BFE0110",
+        description="VaultRelayer contract address for token approvals",
+    )
+
+
+class WalletConfig(BaseSettings):
+    """Wallet configuration for trader accounts."""
+
+    model_config = SettingsConfigDict(env_prefix="COW_WALLET_")
+
+    # Wallet generation/specification
+    generate_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of new wallets to generate (0 = use default trader pool)",
+    )
+    private_keys: list[str] = Field(
+        default_factory=list,
+        description="List of private keys to use (hex strings with 0x prefix)",
+    )
+
+    # Funding configuration (requires Anvil fork mode)
+    funding_enabled: bool = Field(
+        default=False,
+        description="Enable automatic wallet funding (requires Anvil RPC with fork mode)",
+    )
+    eth_balance: float = Field(
+        default=10.0,
+        gt=0.0,
+        description="ETH balance to fund each wallet with (in ETH)",
+    )
+    token_balances: dict[str, float] = Field(
+        default_factory=lambda: {"WETH": 10.0, "DAI": 10000.0},
+        description="Token balances to fund (symbol: amount). Supported: WETH, DAI, USDC",
+    )
+
+    @field_validator("private_keys")
+    @classmethod
+    def validate_private_keys(cls, v: list[str]) -> list[str]:
+        """Validate that private keys are valid hex strings."""
+        for key in v:
+            if not key.startswith("0x"):
+                raise ValueError(f"Private key must start with 0x: {key[:10]}...")
+            if len(key) != 66:  # 0x + 64 hex chars
+                raise ValueError(f"Private key must be 66 characters (0x + 64 hex): {key[:10]}...")
+        return v
 
 
 class APIConfig(BaseSettings):
@@ -95,6 +142,7 @@ class PerformanceTestConfig(BaseSettings):
     network: NetworkConfig = Field(default_factory=NetworkConfig)
     api: APIConfig = Field(default_factory=APIConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
+    wallet: WalletConfig = Field(default_factory=WalletConfig)
 
     # Default test parameters
     default_trader_count: int = Field(
@@ -247,6 +295,7 @@ network:
   rpc_url: "https://eth.llamarpc.com"
   settlement_contract: "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
   composable_cow_contract: "0xfdaFc9d1902f4e0b84f65F49f244b32b31013b74"
+  vault_relayer: "0xC92E8bdf79f0507f65a392b0ab4667716BFE0110"
 
 # API settings
 api:
@@ -260,6 +309,24 @@ output:
   verbose: false
   save_results: false
   results_dir: "~/.cow-perf/results"
+
+# Wallet configuration for trader accounts
+wallet:
+  # Wallet generation/specification
+  generate_count: 0  # Number of wallets to generate (0 = use default trader pool)
+  private_keys: []   # List of private keys to use (hex with 0x prefix)
+  # Example:
+  # private_keys:
+  #   - "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  #   - "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+
+  # Automatic funding (requires Anvil fork mode)
+  funding_enabled: false  # Enable to fund wallets automatically
+  eth_balance: 10.0       # ETH per wallet
+  token_balances:         # Token amounts per wallet
+    WETH: 10.0           # 10 WETH
+    DAI: 10000.0         # 10,000 DAI
+    USDC: 5000.0         # 5,000 USDC
 
 # Default test parameters
 default_trader_count: 10

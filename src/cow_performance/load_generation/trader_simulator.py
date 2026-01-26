@@ -241,14 +241,19 @@ class TraderSimulator:
         # Update status to submitted
         self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
 
-        # Submit to API (mock implementation)
+        # Submit to API
         if self.api_client is not None:
-            # Real implementation would be:
-            # response = await self.api_client.submit_order(signed_order)
-            # self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
-            pass
+            try:
+                # Submit order to orderbook API
+                await self.api_client.submit_order(signed_order.model_dump(by_alias=True))
+                self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
+            except Exception as e:
+                # Mark as failed if submission fails
+                self.order_tracker.update_order_status(order_uid, OrderStatus.FAILED)
+                # Re-raise to let orchestrator handle it
+                raise RuntimeError(f"Failed to submit order: {e}") from e
         else:
-            # Mock acceptance
+            # Mock acceptance in dry-run mode
             self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
 
         # Increment trader stats
