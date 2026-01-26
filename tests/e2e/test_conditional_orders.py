@@ -30,10 +30,8 @@ from cow_performance.load_generation import (
 from tests.e2e.conftest import (
     COMPOSABLE_COW_CONTRACT,
     DAI,
-    SETTLEMENT_CONTRACT,
     VAULT_RELAYER,
     WETH,
-    approve_token,
     fund_trader_with_token,
 )
 
@@ -98,9 +96,9 @@ class TestConditionalOrders:
 
         # Fund Safe with WETH (0.3 WETH for the TWAP order)
         weth_amount = web3.to_wei(0.3, "ether")
-        print(f"Funding Safe with 0.3 WETH...")
+        print("Funding Safe with 0.3 WETH...")
         fund_trader_with_token(web3, safe_wallet.address, WETH, weth_amount)
-        print(f"✓ Safe funded with WETH")
+        print("✓ Safe funded with WETH")
 
         # Approve VaultRelayer from Safe
         print("Approving VaultRelayer to spend WETH from Safe...")
@@ -109,7 +107,7 @@ class TestConditionalOrders:
             spender=VAULT_RELAYER,
             amount=weth_amount * 10,  # Approve extra for multiple parts
         )
-        print(f"✓ VaultRelayer approved")
+        print("✓ VaultRelayer approved")
 
         # Create WETH→DAI token pair
         weth_token = Token(address=WETH, symbol="WETH", decimals=18)
@@ -134,12 +132,12 @@ class TestConditionalOrders:
             start_delay_seconds=10,  # Start 10 seconds from now
         )
 
-        print(f"✓ Created TWAP order:")
+        print("✓ Created TWAP order:")
         print(f"  Sell token: {weth_dai_pair.sell_token.symbol}")
         print(f"  Buy token: {weth_dai_pair.buy_token.symbol}")
-        print(f"  Total amount: 0.3 WETH")
-        print(f"  Parts: 3 (0.1 each)")
-        print(f"  Interval: 240s")
+        print("  Total amount: 0.3 WETH")
+        print("  Parts: 3 (0.1 each)")
+        print("  Interval: 240s")
         print(f"  Handler: {twap_order.params.handler}")
         print(f"  Owner: {twap_order.owner}")
 
@@ -244,7 +242,7 @@ class TestConditionalOrders:
                     # WETH decreased - order settled!
                     settled = True
                     final_weth = current_weth
-                    print(f"\n✓ TWAP part 1 settled!")
+                    print("\n✓ TWAP part 1 settled!")
                     print(f"  Final Safe WETH balance: {web3.from_wei(final_weth, 'ether')} WETH")
                     print(f"  WETH sold: {web3.from_wei(initial_weth - final_weth, 'ether')} WETH")
                     break
@@ -310,9 +308,9 @@ class TestConditionalOrders:
 
         # Fund Safe with WETH (0.1 WETH for the stop-loss order)
         weth_amount = web3.to_wei(0.1, "ether")
-        print(f"Funding Safe with 0.1 WETH...")
+        print("Funding Safe with 0.1 WETH...")
         fund_trader_with_token(web3, safe_wallet.address, WETH, weth_amount)
-        print(f"✓ Safe funded with WETH")
+        print("✓ Safe funded with WETH")
 
         # Approve VaultRelayer from Safe
         print("Approving VaultRelayer to spend WETH from Safe...")
@@ -321,7 +319,7 @@ class TestConditionalOrders:
             spender=VAULT_RELAYER,
             amount=weth_amount * 10,
         )
-        print(f"✓ VaultRelayer approved")
+        print("✓ VaultRelayer approved")
 
         # Create WETH→DAI token pair
         weth_token = Token(address=WETH, symbol="WETH", decimals=18)
@@ -345,11 +343,11 @@ class TestConditionalOrders:
             valid_duration=3600,  # Valid for 1 hour
         )
 
-        print(f"✓ Created stop-loss order:")
+        print("✓ Created stop-loss order:")
         print(f"  Sell token: {weth_dai_pair.sell_token.symbol}")
         print(f"  Buy token: {weth_dai_pair.buy_token.symbol}")
-        print(f"  Amount: 0.1 WETH")
-        print(f"  Strike: 90% of current price")
+        print("  Amount: 0.1 WETH")
+        print("  Strike: 90% of current price")
         print(f"  Handler: {stop_loss_order.params.handler}")
         print(f"  Owner: {stop_loss_order.owner}")
 

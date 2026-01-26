@@ -13,15 +13,11 @@ from web3 import Web3
 from .conditional_order_schema import (
     ConditionalOrder,
     ConditionalOrderParams,
-    GoodAfterTimeOrderParameters,
-    StopLossOrderParameters,
-    TWAPOrderParameters,
 )
 from .order_schema import (
     OrderParameters,
     SignedOrder,
     SigningScheme,
-    create_order_hash,
     get_order_domain,
     get_order_types,
 )

@@ -111,7 +111,7 @@ class TestHooksOrders:
         trader = TraderAccount.from_private_key(funded_weth_trader.key.hex())
 
         # Approve WETH for trading (VaultRelayer needs approval)
-        print(f"\nApproving WETH for trading...")
+        print("\nApproving WETH for trading...")
         from tests.e2e.conftest import VAULT_RELAYER
 
         weth_contract = web3.eth.contract(
@@ -144,12 +144,12 @@ class TestHooksOrders:
         signed_approve = web3.eth.account.sign_transaction(approve_tx, trader.private_key)
         approve_hash = web3.eth.send_raw_transaction(signed_approve.rawTransaction)
         web3.eth.wait_for_transaction_receipt(approve_hash)
-        print(f"✓ WETH approved for trading")
+        print("✓ WETH approved for trading")
 
         # Create WETH→DAI token pair
         weth_token = Token(address=WETH, symbol="WETH", decimals=18)
         dai_token = Token(address=DAI, symbol="DAI", decimals=18)
-        weth_dai_pair = TokenPair(sell_token=weth_token, buy_token=dai_token)
+        TokenPair(sell_token=weth_token, buy_token=dai_token)
 
         # Create hooks metadata FIRST
         # Pre-hook: simple call to trader's address (no-op)
@@ -176,8 +176,7 @@ class TestHooksOrders:
         app_data_hash = Web3.keccak(text=app_data_json).hex()
 
         # Create order parameters manually with hooks appData
-        from cow_performance.load_generation import OrderParameters, OrderKind, OrderBalance
-        import time
+        from cow_performance.load_generation import OrderBalance, OrderKind, OrderParameters
 
         sell_amount_wei = weth_token.to_wei(0.1)
         buy_amount_wei = dai_token.to_wei(0.1)  # Simplified 1:1 price
@@ -197,23 +196,23 @@ class TestHooksOrders:
             receiver=None,
         )
 
-        print(f"\nCreated order with pre-hook:")
+        print("\nCreated order with pre-hook:")
         print(f"  Hook target: {pre_hook['target']}")
         print(f"  App data hash: {order_params.appData}")
 
         # Upload appData document first
-        print(f"\nUploading appData document to orderbook...")
+        print("\nUploading appData document to orderbook...")
         try:
             orderbook_client.upload_app_data(order_params.appData, app_data_json)
-            print(f"✓ AppData uploaded successfully")
+            print("✓ AppData uploaded successfully")
         except Exception as e:
             print(f"⚠ AppData upload failed: {e}")
-            print(f"  This may be expected if appData already exists")
+            print("  This may be expected if appData already exists")
 
         # Sign and submit order
         signed_order = order_signer.sign_order(order_params, trader.get_account())
 
-        print(f"\nSubmitting order with hooks to orderbook...")
+        print("\nSubmitting order with hooks to orderbook...")
         response = orderbook_client.submit_order(signed_order.model_dump(by_alias=True))
         print(f"✓ Order submitted: {response}")
 
@@ -236,7 +235,7 @@ class TestHooksOrders:
                     print(f"  Order status: {status}")
 
                     if status == "fulfilled":
-                        print(f"🎉 Order with pre-hook executed successfully!")
+                        print("🎉 Order with pre-hook executed successfully!")
                         trades = orderbook_client.get_trades(order_uid)
                         print(f"  Trades: {len(trades)}")
                         break
@@ -245,7 +244,7 @@ class TestHooksOrders:
 
                 time.sleep(5)
         else:
-            print(f"⚠ No order UID in response, cannot track settlement")
+            print("⚠ No order UID in response, cannot track settlement")
 
     @pytest.mark.e2e
     @pytest.mark.skip(reason="Requires permit signature generation")
@@ -272,7 +271,7 @@ class TestHooksOrders:
         weth_dai_pair = TokenPair(sell_token=weth_token, buy_token=dai_token)
 
         # Generate base order
-        order_params = order_factory.create_market_order(
+        order_factory.create_market_order(
             trader_account=trader.get_account(),
             token_pair=weth_dai_pair,
             sell_amount=0.1,
@@ -304,7 +303,7 @@ class TestHooksOrders:
         trader = TraderAccount.from_private_key(funded_weth_trader.key.hex())
 
         # Approve WETH for trading
-        print(f"\nApproving WETH for trading...")
+        print("\nApproving WETH for trading...")
         from tests.e2e.conftest import VAULT_RELAYER
 
         weth_contract = web3.eth.contract(
@@ -337,12 +336,12 @@ class TestHooksOrders:
         signed_approve = web3.eth.account.sign_transaction(approve_tx, trader.private_key)
         approve_hash = web3.eth.send_raw_transaction(signed_approve.rawTransaction)
         web3.eth.wait_for_transaction_receipt(approve_hash)
-        print(f"✓ WETH approved for trading")
+        print("✓ WETH approved for trading")
 
         # Create WETH→DAI token pair
         weth_token = Token(address=WETH, symbol="WETH", decimals=18)
         dai_token = Token(address=DAI, symbol="DAI", decimals=18)
-        weth_dai_pair = TokenPair(sell_token=weth_token, buy_token=dai_token)
+        TokenPair(sell_token=weth_token, buy_token=dai_token)
 
         # Create a recipient address for the post-hook transfer
         recipient = Account.create()
@@ -381,8 +380,7 @@ class TestHooksOrders:
         app_data_hash = Web3.keccak(text=app_data_json).hex()
 
         # Create order parameters manually with hooks appData
-        from cow_performance.load_generation import OrderParameters, OrderKind, OrderBalance
-        import time
+        from cow_performance.load_generation import OrderBalance, OrderKind, OrderParameters
 
         sell_amount_wei = weth_token.to_wei(0.1)
         buy_amount_wei = dai_token.to_wei(0.1)  # Simplified 1:1 price
@@ -402,23 +400,23 @@ class TestHooksOrders:
             receiver=None,
         )
 
-        print(f"\nCreated order with post-hook:")
+        print("\nCreated order with post-hook:")
         print(f"  Hook target: {post_hook['target']} (DAI)")
         print(f"  Hook action: Transfer 100 DAI to {recipient.address}")
         print(f"  App data hash: {order_params.appData}")
 
         # Upload appData document
-        print(f"\nUploading appData document to orderbook...")
+        print("\nUploading appData document to orderbook...")
         try:
             orderbook_client.upload_app_data(order_params.appData, app_data_json)
-            print(f"✓ AppData uploaded successfully")
+            print("✓ AppData uploaded successfully")
         except Exception as e:
             print(f"⚠ AppData upload failed: {e}")
 
         # Sign and submit order
         signed_order = order_signer.sign_order(order_params, trader.get_account())
 
-        print(f"\nSubmitting order with post-hook to orderbook...")
+        print("\nSubmitting order with post-hook to orderbook...")
         response = orderbook_client.submit_order(signed_order.model_dump(by_alias=True))
         print(f"✓ Order submitted: {response}")
 
@@ -441,7 +439,7 @@ class TestHooksOrders:
                     print(f"  Order status: {status}")
 
                     if status == "fulfilled":
-                        print(f"🎉 Order with post-hook executed successfully!")
+                        print("🎉 Order with post-hook executed successfully!")
 
                         # Verify the post-hook executed by checking recipient balance
                         dai_contract = web3.eth.contract(
@@ -474,7 +472,7 @@ class TestHooksOrders:
 
                 time.sleep(5)
         else:
-            print(f"⚠ No order UID in response, cannot track settlement")
+            print("⚠ No order UID in response, cannot track settlement")
 
 
 @pytest.mark.e2e

@@ -13,9 +13,7 @@ from enum import Enum
 from typing import Any
 
 from .conditional_order_factory import ConditionalOrderFactory
-from .conditional_order_schema import ConditionalOrderParams
 from .order_factory import OrderFactory
-from .order_schema import OrderClass, OrderParameters
 from .order_signer import ConditionalOrderSigner, OrderSigner
 from .order_tracker import OrderStatus, OrderTracker
 from .trader_account import TraderAccount
@@ -227,7 +225,7 @@ class TraderSimulator:
         # Track order creation
         # Note: In real implementation, order_uid would come from API response
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        metadata = self.order_tracker.track_order(
+        self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
             sell_token=order_params.sellToken,
@@ -237,7 +235,7 @@ class TraderSimulator:
         )
 
         # Sign order
-        signed_order = self.order_signer.sign_order(
+        self.order_signer.sign_order(
             order_params,
             self.trader.get_account(),
         )
@@ -268,7 +266,7 @@ class TraderSimulator:
 
         # Track order
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        metadata = self.order_tracker.track_order(
+        self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
             sell_token=twap_params.sellToken,
@@ -278,7 +276,7 @@ class TraderSimulator:
         )
 
         # Create conditional order
-        conditional_order = self.conditional_order_signer.create_conditional_order(
+        self.conditional_order_signer.create_conditional_order(
             params=conditional_params,
             owner=self.trader.address,
         )
@@ -303,7 +301,7 @@ class TraderSimulator:
 
         # Track order
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        metadata = self.order_tracker.track_order(
+        self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
             sell_token=stop_loss_params.sellToken,
@@ -313,7 +311,7 @@ class TraderSimulator:
         )
 
         # Create conditional order
-        conditional_order = self.conditional_order_signer.create_conditional_order(
+        self.conditional_order_signer.create_conditional_order(
             params=conditional_params,
             owner=self.trader.address,
         )
@@ -338,7 +336,7 @@ class TraderSimulator:
 
         # Track order
         order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        metadata = self.order_tracker.track_order(
+        self.order_tracker.track_order(
             order_uid=order_uid,
             owner=self.trader.address,
             sell_token=gat_params.sellToken,
@@ -348,7 +346,7 @@ class TraderSimulator:
         )
 
         # Create conditional order
-        conditional_order = self.conditional_order_signer.create_conditional_order(
+        self.conditional_order_signer.create_conditional_order(
             params=conditional_params,
             owner=self.trader.address,
         )
@@ -438,7 +436,7 @@ class TraderSimulator:
         if self._task:
             try:
                 await asyncio.wait_for(self._task, timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._task.cancel()
                 try:
                     await self._task

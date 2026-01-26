@@ -229,8 +229,8 @@ class TraderOrchestrator:
                     simulator.stop(),
                     timeout=self.orchestration_config.graceful_shutdown_timeout,
                 )
-            except asyncio.TimeoutError:
-                print(f"Timeout stopping simulator, forcing cancellation")
+            except TimeoutError:
+                print("Timeout stopping simulator, forcing cancellation")
 
         # Cancel all tasks
         for task in self.tasks:

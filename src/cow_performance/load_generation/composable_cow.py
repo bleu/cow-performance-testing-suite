@@ -8,7 +8,6 @@ orders to the ComposableCow contract on-chain.
 from typing import Any
 
 from web3 import Web3
-from web3.contract import Contract
 
 from .conditional_order_schema import ConditionalOrder
 from .safe_wallet import SafeWallet

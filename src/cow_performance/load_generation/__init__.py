@@ -13,9 +13,12 @@ from .abi_encoding import (
     encode_stop_loss_data,
     encode_twap_data,
 )
+from .composable_cow import (
+    get_tradeable_order,
+    remove_conditional_order,
+    submit_conditional_order,
+)
 from .conditional_order_factory import ConditionalOrderFactory
-
-# Conditional order imports
 from .conditional_order_schema import (
     ConditionalOrder,
     ConditionalOrderParams,
@@ -69,6 +72,7 @@ from .order_validation import (
     validate_order_parameters,
     validate_signed_order,
 )
+from .safe_wallet import SafeWallet, deploy_safe_wallet
 from .token_pair import (
     Token,
     TokenPair,
@@ -76,12 +80,6 @@ from .token_pair import (
     create_mainnet_token_registry,
     create_polygon_token_registry,
 )
-from .composable_cow import (
-    get_tradeable_order,
-    remove_conditional_order,
-    submit_conditional_order,
-)
-from .safe_wallet import SafeWallet, deploy_safe_wallet
 from .trader_account import TraderAccount, TraderPool
 from .trader_orchestrator import (
     OrchestrationConfig,

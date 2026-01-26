@@ -7,9 +7,7 @@ enabling conditional orders (TWAP, Stop-Loss) that require Safe wallet owners.
 
 import secrets
 from dataclasses import dataclass
-from typing import Any
 
-from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3 import Web3
 from web3.contract import Contract

@@ -47,7 +47,7 @@ class TestTraderAccount:
 
     def test_invalid_private_key_raises_error(self):
         """Test that invalid private key raises error."""
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError)):
             TraderAccount.from_private_key("invalid_key")
 
     def test_address_mismatch_raises_error(self):
