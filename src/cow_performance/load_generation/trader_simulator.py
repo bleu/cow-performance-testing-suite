@@ -81,9 +81,7 @@ class TraderBehaviorConfig:
             + self.good_after_time_order_ratio
         )
         if not 0.99 <= total_ratio <= 1.01:  # Allow small floating point errors
-            raise ValueError(
-                f"Order type ratios must sum to 1.0, got {total_ratio}"
-            )
+            raise ValueError(f"Order type ratios must sum to 1.0, got {total_ratio}")
 
         if self.base_rate <= 0:
             raise ValueError("base_rate must be positive")

@@ -117,9 +117,7 @@ class SafeWallet:
     chain_id: int
 
     @classmethod
-    def deploy(
-        cls, web3: Web3, owner: LocalAccount, chain_id: int | None = None
-    ) -> "SafeWallet":
+    def deploy(cls, web3: Web3, owner: LocalAccount, chain_id: int | None = None) -> "SafeWallet":
         """
         Deploy a new Safe wallet with a single owner.
 
@@ -223,9 +221,7 @@ class SafeWallet:
         """Get the current Safe nonce."""
         return self.contract.functions.nonce().call()
 
-    def exec_transaction(
-        self, to: str, value: int, data: bytes | str, operation: int = 0
-    ) -> bytes:
+    def exec_transaction(self, to: str, value: int, data: bytes | str, operation: int = 0) -> bytes:
         """
         Execute a transaction from the Safe wallet.
 
@@ -343,9 +339,7 @@ class SafeWallet:
         domain_separator = self.contract.functions.domainSeparator().call()
 
         # Create EIP-191 message
-        final_hash = Web3.keccak(
-            b"".join([b"\x19\x01", domain_separator, safe_message_hash])
-        )
+        final_hash = Web3.keccak(b"".join([b"\x19\x01", domain_separator, safe_message_hash]))
 
         # Sign with owner
         signature = self.owner.signHash(final_hash)

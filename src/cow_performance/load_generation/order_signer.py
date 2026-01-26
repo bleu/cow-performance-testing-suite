@@ -65,15 +65,24 @@ class OrderSigner:
         """
         # Create the message to sign
         # Handle both enum and string values
-        kind_value = order_params.kind.value if hasattr(order_params.kind, 'value') else order_params.kind
-        sell_balance_value = order_params.sellTokenBalance.value if hasattr(order_params.sellTokenBalance, 'value') else order_params.sellTokenBalance
-        buy_balance_value = order_params.buyTokenBalance.value if hasattr(order_params.buyTokenBalance, 'value') else order_params.buyTokenBalance
+        kind_value = (
+            order_params.kind.value if hasattr(order_params.kind, "value") else order_params.kind
+        )
+        sell_balance_value = (
+            order_params.sellTokenBalance.value
+            if hasattr(order_params.sellTokenBalance, "value")
+            else order_params.sellTokenBalance
+        )
+        buy_balance_value = (
+            order_params.buyTokenBalance.value
+            if hasattr(order_params.buyTokenBalance, "value")
+            else order_params.buyTokenBalance
+        )
 
         message = {
             "sellToken": order_params.sellToken,
             "buyToken": order_params.buyToken,
-            "receiver": order_params.receiver
-            or "0x0000000000000000000000000000000000000000",
+            "receiver": order_params.receiver or "0x0000000000000000000000000000000000000000",
             "sellAmount": int(order_params.sellAmount),
             "buyAmount": int(order_params.buyAmount),
             "validTo": order_params.validTo,
@@ -138,15 +147,24 @@ class OrderSigner:
             True if signature is valid, False otherwise
         """
         # Recreate the typed data
-        kind_value = signed_order.kind.value if hasattr(signed_order.kind, 'value') else signed_order.kind
-        sell_balance_value = signed_order.sellTokenBalance.value if hasattr(signed_order.sellTokenBalance, 'value') else signed_order.sellTokenBalance
-        buy_balance_value = signed_order.buyTokenBalance.value if hasattr(signed_order.buyTokenBalance, 'value') else signed_order.buyTokenBalance
+        kind_value = (
+            signed_order.kind.value if hasattr(signed_order.kind, "value") else signed_order.kind
+        )
+        sell_balance_value = (
+            signed_order.sellTokenBalance.value
+            if hasattr(signed_order.sellTokenBalance, "value")
+            else signed_order.sellTokenBalance
+        )
+        buy_balance_value = (
+            signed_order.buyTokenBalance.value
+            if hasattr(signed_order.buyTokenBalance, "value")
+            else signed_order.buyTokenBalance
+        )
 
         message = {
             "sellToken": signed_order.sellToken,
             "buyToken": signed_order.buyToken,
-            "receiver": signed_order.receiver
-            or "0x0000000000000000000000000000000000000000",
+            "receiver": signed_order.receiver or "0x0000000000000000000000000000000000000000",
             "sellAmount": int(signed_order.sellAmount),
             "buyAmount": int(signed_order.buyAmount),
             "validTo": signed_order.validTo,
@@ -210,9 +228,7 @@ class ConditionalOrderSigner:
             composable_cow_contract: Address of the ComposableCow contract
         """
         self.chain_id = chain_id
-        self.composable_cow_contract = Web3.to_checksum_address(
-            composable_cow_contract
-        )
+        self.composable_cow_contract = Web3.to_checksum_address(composable_cow_contract)
 
     def create_conditional_order(
         self,
@@ -311,9 +327,7 @@ class ConditionalOrderSigner:
         )
 
         # Create final hash with domain separator
-        final_hash = Web3.keccak(
-            b"\x19\x01" + domain_separator + safe_tx_hash
-        )
+        final_hash = Web3.keccak(b"\x19\x01" + domain_separator + safe_tx_hash)
 
         # Sign the hash
         signed_message = trader_account.sign_message_hash(final_hash)

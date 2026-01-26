@@ -184,9 +184,7 @@ class TraderPool:
         if self._deterministic_seed is not None:
             # Deterministic generation for reproducible tests
             seed = self._deterministic_seed + index
-            private_key_int = int.from_bytes(
-                seed.to_bytes(32, "big"), byteorder="big"
-            ) % (2**256)
+            private_key_int = int.from_bytes(seed.to_bytes(32, "big"), byteorder="big") % (2**256)
             private_key = f"0x{private_key_int:064x}"
             return TraderAccount.from_private_key(private_key)
         else:

@@ -442,9 +442,7 @@ class TestConditionalOrderInfrastructure:
         for handler_type in handlers:
             handler_address = get_handler_address(handler_type, chain_id)
             code = web3.eth.get_code(handler_address)
-            assert (
-                code != b""
-            ), f"{handler_type} handler not found at {handler_address}"
+            assert code != b"", f"{handler_type} handler not found at {handler_address}"
             print(f"✓ {handler_type.upper()} handler exists at {handler_address}")
 
     def test_watch_tower_health(self):

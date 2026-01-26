@@ -26,7 +26,6 @@ from cow_performance.load_generation import (
 )
 from tests.e2e.conftest import DAI, SETTLEMENT_CONTRACT, WETH
 
-
 # HooksTrampoline contract address on mainnet
 HOOKS_TRAMPOLINE_ADDRESS = "0x60Bf78233f48eC42eE3F101b9a05eC7878728006"
 
@@ -489,9 +488,7 @@ class TestHooksInfrastructure:
     def test_hooks_trampoline_exists(self, web3: Web3):
         """Verify HooksTrampoline contract exists on the fork."""
         code = web3.eth.get_code(HOOKS_TRAMPOLINE_ADDRESS)
-        assert (
-            code != b""
-        ), f"HooksTrampoline not found at {HOOKS_TRAMPOLINE_ADDRESS}"
+        assert code != b"", f"HooksTrampoline not found at {HOOKS_TRAMPOLINE_ADDRESS}"
         print(f"✓ HooksTrampoline exists at {HOOKS_TRAMPOLINE_ADDRESS}")
 
     def test_hooks_gas_limit_validation(self):
@@ -509,11 +506,7 @@ class TestHooksInfrastructure:
         # Example hook
         hook = {"target": "0x" + "0" * 40, "callData": "0x", "gasLimit": 100000}
 
-        assert (
-            hook["gasLimit"] >= MIN_REASONABLE_GAS
-        ), f"Gas limit too low: {hook['gasLimit']}"
-        assert (
-            hook["gasLimit"] <= MAX_REASONABLE_GAS
-        ), f"Gas limit too high: {hook['gasLimit']}"
+        assert hook["gasLimit"] >= MIN_REASONABLE_GAS, f"Gas limit too low: {hook['gasLimit']}"
+        assert hook["gasLimit"] <= MAX_REASONABLE_GAS, f"Gas limit too high: {hook['gasLimit']}"
 
         print(f"✓ Hook gas limit {hook['gasLimit']} is within reasonable bounds")

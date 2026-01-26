@@ -100,9 +100,7 @@ class TestOrderSigner:
         is_valid = order_signer.verify_signature(signed_order)
         assert is_valid is True
 
-    def test_verify_signature_fails_for_wrong_signer(
-        self, order_signer, order_factory
-    ):
+    def test_verify_signature_fails_for_wrong_signer(self, order_signer, order_factory):
         """Test that signature verification fails for wrong signer."""
         trader1 = TraderAccount.generate()
         trader2 = TraderAccount.generate()
@@ -122,9 +120,7 @@ class TestOrderSigner:
         is_valid = order_signer.verify_signature(signed_order)
         assert is_valid is False
 
-    def test_different_traders_produce_different_signatures(
-        self, order_signer, order_factory
-    ):
+    def test_different_traders_produce_different_signatures(self, order_signer, order_factory):
         """Test that different traders produce different signatures for same order."""
         trader1 = TraderAccount.generate()
         trader2 = TraderAccount.generate()

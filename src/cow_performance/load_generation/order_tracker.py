@@ -71,15 +71,25 @@ class OrderMetadata:
         # Update lifecycle timestamps
         if new_status == OrderStatus.SUBMITTED and self.submission_time is None:
             self.submission_time = timestamp
-        elif new_status in (OrderStatus.ACCEPTED, OrderStatus.OPEN) and self.acceptance_time is None:
+        elif (
+            new_status in (OrderStatus.ACCEPTED, OrderStatus.OPEN) and self.acceptance_time is None
+        ):
             self.acceptance_time = timestamp
 
         # Handle fill time (can be both FILLED and completion)
-        if new_status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED) and self.first_fill_time is None:
+        if (
+            new_status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED)
+            and self.first_fill_time is None
+        ):
             self.first_fill_time = timestamp
 
         # Handle completion (terminal states)
-        if new_status in (OrderStatus.FILLED, OrderStatus.EXPIRED, OrderStatus.CANCELLED, OrderStatus.FAILED):
+        if new_status in (
+            OrderStatus.FILLED,
+            OrderStatus.EXPIRED,
+            OrderStatus.CANCELLED,
+            OrderStatus.FAILED,
+        ):
             if self.completion_time is None:
                 self.completion_time = timestamp
 
@@ -395,15 +405,9 @@ class OrderTracker:
                 metrics.orders_failed += 1
 
         # Calculate average times
-        times_to_submit = [
-            t for order in orders if (t := order.get_time_to_submit()) is not None
-        ]
-        times_to_accept = [
-            t for order in orders if (t := order.get_time_to_accept()) is not None
-        ]
-        times_to_fill = [
-            t for order in orders if (t := order.get_time_to_fill()) is not None
-        ]
+        times_to_submit = [t for order in orders if (t := order.get_time_to_submit()) is not None]
+        times_to_accept = [t for order in orders if (t := order.get_time_to_accept()) is not None]
+        times_to_fill = [t for order in orders if (t := order.get_time_to_fill()) is not None]
         total_lifecycle_times = [
             t for order in orders if (t := order.get_total_lifecycle_time()) is not None
         ]

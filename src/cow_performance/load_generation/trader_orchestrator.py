@@ -187,9 +187,7 @@ class TraderOrchestrator:
                 if not self._running:
                     break
 
-                task = asyncio.create_task(
-                    self._run_trader_with_restart(i, config.duration)
-                )
+                task = asyncio.create_task(self._run_trader_with_restart(i, config.duration))
                 self.tasks.append(task)
 
                 # Stagger startup
@@ -359,14 +357,10 @@ async def run_load_test(
     # For now, we require them to be passed in or this function will fail
 
     if order_factory is None or order_signer is None:
-        raise ValueError(
-            "order_factory and order_signer must be provided"
-        )
+        raise ValueError("order_factory and order_signer must be provided")
 
     if conditional_order_factory is None or conditional_order_signer is None:
-        raise ValueError(
-            "conditional_order_factory and conditional_order_signer must be provided"
-        )
+        raise ValueError("conditional_order_factory and conditional_order_signer must be provided")
 
     # Create orchestrator
     orchestrator = TraderOrchestrator(

@@ -139,8 +139,8 @@ def fund_trader_with_token(
 
     # Calculate storage slot for the trader's balance
     # This works for most ERC20 tokens that use the standard storage layout
-    trader_address_padded = trader_address.lower().replace('0x', '').zfill(64)
-    slot_padded = '0'.zfill(64)
+    trader_address_padded = trader_address.lower().replace("0x", "").zfill(64)
+    slot_padded = "0".zfill(64)
 
     # For WETH, balanceOf mapping is at slot 3
     # For DAI, balanceOf mapping is at slot 2
@@ -163,8 +163,7 @@ def fund_trader_with_token(
 
     # Set the storage value using Anvil's anvil_setStorageAt
     web3.provider.make_request(
-        "anvil_setStorageAt",
-        [token_address, storage_key.hex(), f"0x{amount_hex}"]
+        "anvil_setStorageAt", [token_address, storage_key.hex(), f"0x{amount_hex}"]
     )
 
 
@@ -335,7 +334,9 @@ def orderbook_client(orderbook_api_url: str) -> Any:
                 app_data_doc = json.loads(app_data_doc)
 
             # Strip 0x prefix for the URL path
-            hash_without_prefix = app_data_hash[2:] if app_data_hash.startswith("0x") else app_data_hash
+            hash_without_prefix = (
+                app_data_hash[2:] if app_data_hash.startswith("0x") else app_data_hash
+            )
 
             # The API expects the appData wrapped in a "fullAppData" field
             request_body = {"fullAppData": json.dumps(app_data_doc)}

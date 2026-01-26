@@ -52,8 +52,10 @@ def token_registry():
 def order_factory(token_registry):
     """Create order factory."""
     return OrderFactory(
-        token_registry=token_registry,
-        default_valid_duration=3600,
+        token_pair_registry=token_registry,
+        chain_id=1,
+        settlement_contract="0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
+        valid_duration=3600,
     )
 
 
