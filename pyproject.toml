@@ -10,7 +10,7 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.11"
 # CLI framework
-typer = {extras = ["all"], version = "^0.9.0"}
+typer = {extras = ["all"], version = "^0.21.0"}
 # Configuration management
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"

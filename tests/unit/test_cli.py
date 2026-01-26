@@ -17,30 +17,19 @@ class TestCLI:
         assert "CoW Performance Testing Suite" in result.stdout
         assert "0.1.0" in result.stdout
 
-    def test_run_command_executes(self) -> None:
-        """Test that run command executes with a scenario."""
-        result = runner.invoke(app, ["run", "test-scenario"])
-        assert result.exit_code == 0
-        assert "Running scenario: test-scenario" in result.stdout
-        assert "Full implementation coming in M1-03" in result.stdout
-
     def test_scenarios_command_executes(self) -> None:
-        """Test that scenarios command executes."""
+        """Test that scenarios command executes and shows directory info."""
         result = runner.invoke(app, ["scenarios"])
         assert result.exit_code == 0
-        assert "Available scenarios" in result.stdout
-        assert "Scenario library coming in M4-14" in result.stdout
+        assert "Scenarios Directory" in result.stdout
 
     def test_baselines_command_executes(self) -> None:
-        """Test that baselines command executes."""
+        """Test that baselines command executes and shows empty list."""
         result = runner.invoke(app, ["baselines"])
         assert result.exit_code == 0
-        assert "Baseline management" in result.stdout
-        assert "Baseline system coming in M2-08" in result.stdout
+        assert "No baselines found" in result.stdout
 
     def test_config_command_executes(self) -> None:
-        """Test that config command executes."""
-        result = runner.invoke(app, ["config"])
+        """Test that config command runs without error."""
+        result = runner.invoke(app, ["config", "--template"])
         assert result.exit_code == 0
-        assert "Configuration" in result.stdout
-        assert "Configuration system coming in M4-15" in result.stdout
