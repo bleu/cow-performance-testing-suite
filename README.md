@@ -124,6 +124,17 @@ output:
   save_results: true
   results_dir: "~/.cow-perf/results"
 
+# Wallet configuration for trader accounts
+wallet:
+  generate_count: 0       # Number of wallets to generate (0 = use default pool)
+  private_keys: []        # List of private keys to use (optional)
+  funding_enabled: false  # Enable automatic wallet funding (requires Anvil)
+  eth_balance: 10.0       # ETH per wallet (when funding enabled)
+  token_balances:         # Token amounts per wallet (when funding enabled)
+    WETH: 10.0
+    DAI: 10000.0
+    USDC: 5000.0
+
 # Default test parameters
 default_trader_count: 10
 default_duration: 60
@@ -345,17 +356,104 @@ cow-perf run --config ./config.yml --scenario light-load
 The CLI supports multiple output formats for different use cases:
 
 ```bash
-# JSON output (default) - for programmatic processing
-cow-perf run --scenario light-load --output json
+# JSON output - for programmatic processing and APIs
+cow-perf run --config my-test.yml --output-format json --save-results
 
-# Table output - human-readable terminal output
-cow-perf run --scenario light-load --output table
+# Table output - human-readable terminal display (default for console)
+cow-perf run --config my-test.yml --output-format table
 
-# CSV output - for spreadsheet analysis
-cow-perf run --scenario light-load --output csv
+# CSV output - for spreadsheet analysis and data processing
+cow-perf run --config my-test.yml --output-format csv --save-results
 
-# Prometheus format - for metrics collection
-cow-perf run --scenario light-load --output prometheus
+# Prometheus format - for metrics collection and monitoring
+cow-perf run --config my-test.yml --output-format prometheus --save-results
+```
+
+You can also configure the output format in your YAML config file:
+
+```yaml
+output:
+  format: "prometheus"  # json, table, csv, prometheus
+  save_results: true
+  results_dir: "./results"
+```
+
+#### Prometheus Output Format
+
+When using `--output-format prometheus`, the CLI generates metrics in Prometheus text exposition format, ready to be scraped or pushed to Prometheus.
+
+**Example Prometheus output:**
+
+```
+# HELP cow_perf_orders_per_second CoW Protocol performance test metric
+# TYPE cow_perf_orders_per_second gauge
+cow_perf_orders_per_second 0.6969890196125873
+
+# HELP cow_perf_avg_order_latency_ms CoW Protocol performance test metric
+# TYPE cow_perf_avg_order_latency_ms gauge
+cow_perf_avg_order_latency_ms 1434.742832183838
+
+# HELP cow_perf_orders_total CoW Protocol performance test metric
+# TYPE cow_perf_orders_total gauge
+cow_perf_orders_total 5.0
+```
+
+**Available Prometheus metrics:**
+
+Performance metrics:
+- `cow_perf_orders_per_second` - Throughput (orders/sec)
+- `cow_perf_avg_order_latency_ms` - Average order latency
+
+Order type metrics:
+- `cow_perf_orders_total` - Total orders submitted
+- `cow_perf_orders_market` - Market orders count
+- `cow_perf_orders_limit` - Limit orders count
+- `cow_perf_orders_twap` - TWAP orders count
+- `cow_perf_orders_stop_loss` - Stop-loss orders count
+- `cow_perf_orders_good_after_time` - Good-after-time orders count
+
+Orchestration metrics:
+- `cow_perf_duration_seconds` - Test duration
+- `cow_perf_traders_active` - Number of active traders
+- `cow_perf_traders_total` - Total number of traders
+
+**Integration with Prometheus:**
+
+1. **Push to Prometheus Pushgateway** (recommended for batch jobs):
+
+```bash
+# Run test and save Prometheus metrics
+cow-perf run --config test.yml --output-format prometheus --save-results
+
+# Push to Pushgateway
+cat results/perf-test-*.txt | \
+  curl --data-binary @- http://pushgateway:9091/metrics/job/cow_perf_test
+```
+
+2. **Node Exporter textfile collector**:
+
+```bash
+# Configure output directory to node exporter's textfile directory
+cow-perf run --config test.yml --output-format prometheus \
+  --output-file /var/lib/node_exporter/textfile_collector/cow_perf.prom
+```
+
+3. **Custom HTTP endpoint** (requires additional service):
+
+```bash
+# Save to directory served by HTTP
+cow-perf run --config test.yml --output-format prometheus \
+  --output-file /var/www/metrics/cow_perf.txt
+```
+
+**Example Prometheus scrape config:**
+
+```yaml
+scrape_configs:
+  - job_name: 'cow_performance'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']
 ```
 
 ### Example Workflows
