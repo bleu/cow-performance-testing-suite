@@ -53,6 +53,7 @@ class TraderOrchestrator:
         default_behavior_config: TraderBehaviorConfig,
         orchestration_config: OrchestrationConfig,
         api_client: Any | None = None,
+        order_cleanup_config: Any | None = None,
     ):
         """
         Initialize the trader orchestrator.
@@ -67,6 +68,7 @@ class TraderOrchestrator:
             default_behavior_config: Default behavior configuration for traders
             orchestration_config: Configuration for orchestration
             api_client: Optional API client for order submission
+            order_cleanup_config: Optional configuration for order cleanup behavior
         """
         self.trader_pool = trader_pool
         self.order_factory = order_factory
@@ -77,6 +79,7 @@ class TraderOrchestrator:
         self.default_behavior_config = default_behavior_config
         self.orchestration_config = orchestration_config
         self.api_client = api_client
+        self.order_cleanup_config = order_cleanup_config
 
         self.simulators: list[TraderSimulator] = []
         self.tasks: list[asyncio.Task] = []
@@ -108,6 +111,7 @@ class TraderOrchestrator:
             order_tracker=self.order_tracker,
             behavior_config=behavior_config,
             api_client=self.api_client,
+            order_cleanup_config=self.order_cleanup_config,
         )
 
     async def _run_trader_with_restart(
@@ -167,6 +171,33 @@ class TraderOrchestrator:
                 # Small delay before restart
                 await asyncio.sleep(1.0)
 
+    async def _upload_app_data(self) -> None:
+        """Upload appData documents for market and limit order classification."""
+        if self.api_client is None:
+            # Skip upload in dry-run mode
+            return
+
+        try:
+            print("Uploading appData documents for order classification...")
+
+            # Upload market order appData
+            await self.api_client.upload_app_data_with_retry(
+                app_data_hash=self.order_factory.market_app_data_hash,
+                app_data_doc=self.order_factory.market_app_data_doc,
+            )
+
+            # Upload limit order appData
+            await self.api_client.upload_app_data_with_retry(
+                app_data_hash=self.order_factory.limit_app_data_hash,
+                app_data_doc=self.order_factory.limit_app_data_doc,
+            )
+
+            print("AppData documents uploaded successfully")
+
+        except Exception as e:
+            print(f"Warning: Failed to upload appData documents: {e}")
+            print("Continuing with simulation - orders may not be classified correctly")
+
     async def run(self) -> None:
         """
         Run the orchestrated trader simulation.
@@ -178,6 +209,9 @@ class TraderOrchestrator:
 
         config = self.orchestration_config
         num_traders = min(config.num_traders, self.trader_pool.get_pool_size())
+
+        # Upload appData documents before starting traders
+        await self._upload_app_data()
 
         print(f"Starting {num_traders} traders...")
 

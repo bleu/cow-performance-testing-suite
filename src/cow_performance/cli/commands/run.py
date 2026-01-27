@@ -280,6 +280,7 @@ async def run_performance_test(
         default_behavior_config=behavior_config,
         orchestration_config=orchestration_config,
         api_client=api_client,
+        order_cleanup_config=config.order_cleanup,
     )
 
     # Set up graceful shutdown handler

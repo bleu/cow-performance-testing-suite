@@ -12,8 +12,10 @@ from decimal import Decimal
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 
+from .app_data import create_app_data
 from .order_schema import (
     OrderBalance,
+    OrderClass,
     OrderKind,
     OrderParameters,
     SignedOrder,
@@ -37,7 +39,7 @@ class OrderFactory:
         chain_id: int,
         settlement_contract: str,
         amount_range: tuple[float, float] | None = None,
-        valid_duration: int = 3600,
+        valid_duration: int = 300,
         default_app_data: str = "0x0000000000000000000000000000000000000000000000000000000000000000",
         fee_percentage: float = 0.001,
     ) -> None:
@@ -49,7 +51,7 @@ class OrderFactory:
             chain_id: Chain ID (1 for mainnet, etc.)
             settlement_contract: Address of CoW Protocol settlement contract
             amount_range: Min and max amounts in token units (default: 0.1 to 10.0)
-            valid_duration: Order validity duration in seconds (default: 3600 = 1 hour)
+            valid_duration: Order validity duration in seconds (default: 300 = 5 minutes)
             default_app_data: Default appData hash (default: zero hash)
             fee_percentage: Fee as percentage of sell amount (default: 0.1%)
         """
@@ -70,6 +72,12 @@ class OrderFactory:
             raise ValueError("Valid duration must be positive")
         if self.fee_percentage < 0 or self.fee_percentage > 1:
             raise ValueError("Fee percentage must be between 0 and 1")
+
+        # Generate appData with orderClass metadata
+        self.market_app_data_hash, self.market_app_data_doc = create_app_data(
+            OrderClass.MARKET
+        )
+        self.limit_app_data_hash, self.limit_app_data_doc = create_app_data(OrderClass.LIMIT)
 
     def _generate_random_amount(self, min_amount: float, max_amount: float) -> float:
         """
@@ -156,8 +164,9 @@ class OrderFactory:
         """
         Generate a realistic market order.
 
-        Market orders use current market price (approximated as 1:1 for simplicity
-        in testing scenarios, but can be configured with actual market data).
+        Market orders in CoW Protocol are limit orders with shorter expiration times
+        (typically 2 minutes) and fill-or-kill semantics (partiallyFillable=False).
+        The price is approximated as 1:1 for testing scenarios.
 
         Args:
             trader_account: Account to sign the order
@@ -190,17 +199,20 @@ class OrderFactory:
         # Calculate fee
         fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
 
-        # Create order parameters
+        # Market orders have shorter expiration (2 minutes) for immediate execution
+        market_valid_to = int(time.time()) + 120  # 120 seconds = 2 minutes
+
+        # Create order parameters with market orderClass metadata
         params = OrderParameters(
             sellToken=token_pair.sell_token.address,
             buyToken=token_pair.buy_token.address,
             sellAmount=str(sell_amount_wei),
             buyAmount=str(buy_amount_wei),
-            validTo=self._get_valid_to_timestamp(),
-            appData=self.default_app_data,
+            validTo=market_valid_to,
+            appData=self.market_app_data_hash,  # Use market-specific appData
             feeAmount=str(fee_amount_wei),
             kind=kind,
-            partiallyFillable=False,
+            partiallyFillable=False,  # Market orders: fill-or-kill semantics
             sellTokenBalance=OrderBalance.ERC20,
             buyTokenBalance=OrderBalance.ERC20,
             receiver=None,
@@ -223,7 +235,9 @@ class OrderFactory:
         """
         Generate a realistic limit order.
 
-        Limit orders specify an exact price at which the order should execute.
+        Limit orders in CoW Protocol specify an exact price and typically have longer
+        expiration times (hours to days). They allow partial fills so the order can
+        be gradually filled as liquidity becomes available.
 
         Args:
             trader_account: Account to sign the order
@@ -263,17 +277,20 @@ class OrderFactory:
         # Calculate fee
         fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
 
-        # Create order parameters
+        # Limit orders use configured valid_duration (default 300s = 5 minutes)
+        # In production, this would typically be hours to days
+
+        # Create order parameters with limit orderClass metadata
         params = OrderParameters(
             sellToken=token_pair.sell_token.address,
             buyToken=token_pair.buy_token.address,
             sellAmount=str(sell_amount_wei),
             buyAmount=str(buy_amount_wei),
-            validTo=self._get_valid_to_timestamp(),
-            appData=self.default_app_data,
+            validTo=self._get_valid_to_timestamp(),  # Uses self.valid_duration
+            appData=self.limit_app_data_hash,  # Use limit-specific appData
             feeAmount=str(fee_amount_wei),
             kind=kind,
-            partiallyFillable=False,
+            partiallyFillable=True,  # Limit orders allow gradual fills
             sellTokenBalance=OrderBalance.ERC20,
             buyTokenBalance=OrderBalance.ERC20,
             receiver=None,

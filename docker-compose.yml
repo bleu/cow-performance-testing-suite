@@ -140,24 +140,14 @@ services:
   autopilot:
     build:
       context: ./modules/services
-      target: localdev
-      dockerfile: ../../Dockerfile
+      target: autopilot
     restart: always
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        echo "Waiting for chain to be reachable..."
-        until curl -s -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://chain:8545 | grep -q result; do
-          sleep 1
-        done
-        echo "Chain is ready! Building and starting autopilot..."
-        cargo run --bin autopilot
     environment:
       - NODE_URL=http://chain:8545
       - DB_WRITE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
       - DB_READ_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
       - SIMULATION_NODE_URL=http://chain:8545
-      - RUST_LOG=autopilot=debug,shared=info
+      - LOG_FILTER=warn,autopilot=info,shared=info
       - DRIVERS=baseline|http://driver/baseline|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
       - PRICE_ESTIMATION_DRIVERS=baseline|http://driver/baseline
       - NATIVE_PRICE_ESTIMATORS=baseline|http://driver/baseline
@@ -170,8 +160,6 @@ services:
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=UniswapV2
       - RUST_BACKTRACE=1
-    volumes:
-      - ./modules/services:/src
     depends_on:
       db:
         condition: service_healthy
@@ -205,26 +193,15 @@ services:
   driver:
     build:
       context: ./modules/services
-      target: localdev
-      dockerfile: ../../Dockerfile
+      target: driver
     restart: always
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        echo "Waiting for chain to be reachable..."
-        until curl -s -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://chain:8545 | grep -q result; do
-          sleep 1
-        done
-        echo "Chain is ready! Building and starting driver..."
-        cargo run --bin driver -- --config /workspace/configs/driver.toml
+    command: ["--config", "/driver.toml"]
     environment:
       - ETHRPC=http://chain:8545
       - ADDR=0.0.0.0:80
-      - RUST_LOG=driver=debug,shared=info
       - RUST_BACKTRACE=1
     volumes:
-      - ./modules/services:/src
-      - ./configs:/workspace/configs
+      - ./configs/driver.toml:/driver.toml
     depends_on:
       chain:
         condition: service_healthy
@@ -241,25 +218,15 @@ services:
   baseline:
     build:
       context: ./modules/services
-      target: localdev
-      dockerfile: ../../Dockerfile
+      target: solvers
     restart: always
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        echo "Waiting for chain to be reachable..."
-        until curl -s -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' http://chain:8545 | grep -q result; do
-          sleep 1
-        done
-        echo "Chain is ready! Building and starting baseline solver..."
-        cargo run --bin solvers -- baseline --config /workspace/configs/baseline.toml
+    command: ["baseline", "--config", "/baseline.toml"]
     environment:
       - ADDR=0.0.0.0:80
-      - RUST_LOG=solvers=debug,shared=info
+      - LOG=solvers=debug,shared=info
       - RUST_BACKTRACE=1
     volumes:
-      - ./modules/services:/src
-      - ./configs:/workspace/configs
+      - ./configs/baseline.toml:/baseline.toml
     depends_on:
       chain:
         condition: service_healthy

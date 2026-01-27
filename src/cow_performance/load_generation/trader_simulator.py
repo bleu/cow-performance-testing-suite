@@ -103,6 +103,7 @@ class TraderSimulator:
         order_tracker: OrderTracker,
         behavior_config: TraderBehaviorConfig,
         api_client: Any | None = None,
+        order_cleanup_config: Any | None = None,
     ):
         """
         Initialize trader simulator.
@@ -116,6 +117,7 @@ class TraderSimulator:
             order_tracker: Tracker for monitoring order lifecycle
             behavior_config: Configuration for trading behavior
             api_client: Optional API client for order submission
+            order_cleanup_config: Optional configuration for order cleanup behavior
         """
         self.trader = trader
         self.order_factory = order_factory
@@ -125,9 +127,11 @@ class TraderSimulator:
         self.order_tracker = order_tracker
         self.behavior_config = behavior_config
         self.api_client = api_client
+        self.order_cleanup_config = order_cleanup_config
 
         self._running = False
         self._task: asyncio.Task | None = None
+        self._cleanup_task: asyncio.Task | None = None
 
     def _get_order_interval(self) -> float:
         """
@@ -188,6 +192,76 @@ class TraderSimulator:
             self.behavior_config.max_think_time,
         )
         await asyncio.sleep(think_time)
+
+    async def _cleanup_loop(self) -> None:
+        """Background loop to check and cleanup old orders."""
+        if not self.order_cleanup_config or not self.order_cleanup_config.enabled:
+            return
+
+        while self._running:
+            try:
+                # Check current order count
+                open_count = await self.api_client.get_open_order_count(self.trader.address)
+
+                if open_count >= self.order_cleanup_config.max_open_orders_per_wallet:
+                    print(
+                        f"Trader {self.trader.address[:8]}... has {open_count} open orders, "
+                        f"triggering cleanup..."
+                    )
+                    await self._cleanup_orders()
+
+            except Exception as e:
+                print(f"Error in cleanup loop: {e}")
+
+            await asyncio.sleep(self.order_cleanup_config.check_interval)
+
+    async def _cleanup_orders(self) -> None:
+        """Cancel oldest orders to stay under limit."""
+        if not self.order_cleanup_config:
+            return
+
+        config = self.order_cleanup_config
+
+        # Get all orders for this wallet
+        all_orders = await self.api_client.get_account_orders(
+            self.trader.address,
+            limit=1000,
+        )
+
+        # Filter to open orders only
+        open_orders = [o for o in all_orders if o.get("status") == "open"]
+
+        # Sort by creation time (oldest first)
+        if config.cleanup_strategy == "oldest_first":
+            open_orders.sort(key=lambda o: o.get("creationDate", ""))
+        elif config.cleanup_strategy == "random":
+            random.shuffle(open_orders)
+
+        # Select orders to cancel
+        orders_to_cancel = open_orders[: config.cleanup_batch_size]
+        order_uids = [o["uid"] for o in orders_to_cancel]
+
+        if not order_uids:
+            return
+
+        # Sign cancellation
+        from .order_signer import sign_order_cancellations
+
+        signature = sign_order_cancellations(
+            order_uids=order_uids,
+            trader_account=self.trader.get_account(),
+            chain_id=self.order_factory.chain_id,
+            settlement_contract=self.order_factory.settlement_contract,
+        )
+
+        # Cancel orders
+        await self.api_client.cancel_orders(
+            order_uids=order_uids,
+            signature=signature,
+            signing_scheme="eip712",
+        )
+
+        print(f"Trader {self.trader.address[:8]}... cancelled {len(order_uids)} orders")
 
     async def _generate_and_submit_order(self) -> None:
         """Generate and submit a single order based on behavior configuration."""
@@ -385,6 +459,10 @@ class TraderSimulator:
         """
         self._running = True
 
+        # Start cleanup loop if enabled
+        if self.order_cleanup_config and self.order_cleanup_config.enabled and self.api_client:
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+
         try:
             if self.behavior_config.pattern == TradingPattern.CONSTANT_RATE:
                 await self._constant_rate_loop(duration)
@@ -396,6 +474,13 @@ class TraderSimulator:
                 await self._time_based_loop(duration)
         finally:
             self._running = False
+            # Cancel cleanup task
+            if self._cleanup_task:
+                self._cleanup_task.cancel()
+                try:
+                    await self._cleanup_task
+                except asyncio.CancelledError:
+                    pass
 
     def start(self, duration: float) -> asyncio.Task:
         """
@@ -413,6 +498,15 @@ class TraderSimulator:
     async def stop(self) -> None:
         """Stop the trader simulation gracefully."""
         self._running = False
+
+        # Cancel cleanup task
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+
         if self._task:
             try:
                 await asyncio.wait_for(self._task, timeout=5.0)

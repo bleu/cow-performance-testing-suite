@@ -130,6 +130,45 @@ class OutputConfig(BaseSettings):
         return v
 
 
+class OrderCleanupConfig(BaseSettings):
+    """Configuration for order cleanup behavior."""
+
+    model_config = SettingsConfigDict(env_prefix="COW_ORDER_CLEANUP_")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable automatic order cleanup/cancellation",
+    )
+    max_open_orders_per_wallet: int = Field(
+        default=50,
+        ge=1,
+        description="Maximum open orders per wallet before cleanup triggers",
+    )
+    cleanup_batch_size: int = Field(
+        default=10,
+        ge=1,
+        description="Number of orders to cancel in each cleanup batch",
+    )
+    cleanup_strategy: str = Field(
+        default="oldest_first",
+        description="Cleanup strategy: 'oldest_first', 'random', or 'all'",
+    )
+    check_interval: float = Field(
+        default=5.0,
+        gt=0.0,
+        description="Interval (seconds) to check order count and trigger cleanup",
+    )
+
+    @field_validator("cleanup_strategy")
+    @classmethod
+    def validate_cleanup_strategy(cls, v: str) -> str:
+        """Validate cleanup strategy."""
+        allowed = ["oldest_first", "random", "all"]
+        if v not in allowed:
+            raise ValueError(f"Cleanup strategy must be one of: {', '.join(allowed)}")
+        return v
+
+
 class PerformanceTestConfig(BaseSettings):
     """Main configuration for performance testing."""
 
@@ -143,6 +182,7 @@ class PerformanceTestConfig(BaseSettings):
     api: APIConfig = Field(default_factory=APIConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     wallet: WalletConfig = Field(default_factory=WalletConfig)
+    order_cleanup: OrderCleanupConfig = Field(default_factory=OrderCleanupConfig)
 
     # Default test parameters
     default_trader_count: int = Field(
@@ -339,6 +379,14 @@ limit_order_ratio: 0.4
 twap_order_ratio: 0.1
 stop_loss_order_ratio: 0.05
 good_after_time_order_ratio: 0.05
+
+# Order cleanup configuration
+order_cleanup:
+  enabled: true
+  max_open_orders_per_wallet: 50
+  cleanup_batch_size: 10
+  cleanup_strategy: "oldest_first"
+  check_interval: 5.0
 """
 
     with open(output_path, "w") as f:
