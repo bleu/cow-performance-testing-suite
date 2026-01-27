@@ -35,13 +35,14 @@ def validate_address(address: str, field_name: str = "address") -> None:
         raise OrderValidationError(f"{field_name} is not a valid Ethereum address: {address}")
 
 
-def validate_amount(amount: str, field_name: str = "amount") -> None:
+def validate_amount(amount: str, field_name: str = "amount", allow_zero: bool = False) -> None:
     """
     Validate an amount is a positive integer string.
 
     Args:
         amount: Amount to validate
         field_name: Name of the field for error messages
+        allow_zero: If True, allow zero values (default: False)
 
     Raises:
         OrderValidationError: If amount is invalid
@@ -54,8 +55,12 @@ def validate_amount(amount: str, field_name: str = "amount") -> None:
     except ValueError as e:
         raise OrderValidationError(f"{field_name} must be a valid integer: {amount}") from e
 
-    if amount_int <= 0:
-        raise OrderValidationError(f"{field_name} must be positive: {amount}")
+    if allow_zero:
+        if amount_int < 0:
+            raise OrderValidationError(f"{field_name} must be non-negative: {amount}")
+    else:
+        if amount_int <= 0:
+            raise OrderValidationError(f"{field_name} must be positive: {amount}")
 
 
 def validate_timestamp(timestamp: int, field_name: str = "timestamp") -> None:
@@ -157,7 +162,7 @@ def validate_order_parameters(params: OrderParameters) -> list[str]:
         errors.append(str(e))
 
     try:
-        validate_amount(params.feeAmount, "feeAmount")
+        validate_amount(params.feeAmount, "feeAmount", allow_zero=True)
     except OrderValidationError as e:
         errors.append(str(e))
 
@@ -232,7 +237,7 @@ def validate_signed_order(order: SignedOrder) -> list[str]:
         errors.append(str(e))
 
     try:
-        validate_amount(order.feeAmount, "feeAmount")
+        validate_amount(order.feeAmount, "feeAmount", allow_zero=True)
     except OrderValidationError as e:
         errors.append(str(e))
 

@@ -82,7 +82,7 @@ class OrderParameters(BaseModel):
             raise ValueError(f"Invalid Ethereum address: {v}")
         return Web3.to_checksum_address(v)
 
-    @field_validator("sellAmount", "buyAmount", "feeAmount")
+    @field_validator("sellAmount", "buyAmount")
     @classmethod
     def validate_amount(cls, v: str) -> str:
         """Validate amounts are positive integers."""
@@ -92,6 +92,18 @@ class OrderParameters(BaseModel):
                 raise ValueError("Amount must be positive")
         except ValueError as e:
             raise ValueError(f"Invalid amount: {v}") from e
+        return v
+
+    @field_validator("feeAmount")
+    @classmethod
+    def validate_fee_amount(cls, v: str) -> str:
+        """Validate fee amount is non-negative integer (can be zero)."""
+        try:
+            amount = int(v)
+            if amount < 0:
+                raise ValueError("Fee amount must be non-negative")
+        except ValueError as e:
+            raise ValueError(f"Invalid fee amount: {v}") from e
         return v
 
     @field_validator("appData")
