@@ -37,15 +37,20 @@ docker compose down        # Stop services
 docker compose logs -f     # View logs
 ```
 
-## Reference Documentation
+## Documentation Navigation
 
-Read these files when relevant to your task:
-
-| File | When to read |
-|------|--------------|
-| `docs/architecture.md` | Understanding system design |
-| `docs/development.md` | Development guidelines |
-| `hack/CLAUDE.md` | Working with utility scripts |
+| What you need | Read this |
+|---------------|-----------|
+| Get started quickly | `README.md` |
+| CLI commands and config | `docs/cli.md` |
+| Development setup | `docs/development.md` |
+| System architecture | `docs/architecture.md` |
+| Order generation API | `docs/order-generation.md` |
+| TWAP, Stop-Loss orders | `docs/conditional-orders.md` |
+| Trader simulation | `docs/user-simulation.md` |
+| Contributing | `CONTRIBUTING.md` |
+| Utility scripts | `hack/CLAUDE.md` |
+| Project scope and milestones | `thoughts/context/grant-proposal.md` |
 
 ## Working Conventions
 

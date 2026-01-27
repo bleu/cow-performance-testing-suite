@@ -360,6 +360,171 @@ pytest -m "not slow"    # Skip slow tests
 pytest -m integration   # Run integration tests only
 ```
 
+## End-to-End Testing
+
+E2E tests verify the complete integration of all components against a forked Ethereum environment running in Docker.
+
+### E2E Prerequisites
+
+- Docker and Docker Compose running
+- `ETH_RPC_URL` environment variable set
+- Sufficient system resources (8GB+ RAM recommended)
+
+### Setting Up E2E Environment
+
+1. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set: ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_KEY
+   ```
+
+2. **Start Docker services:**
+   ```bash
+   docker compose up -d
+   ```
+
+3. **Wait for orderbook compilation** (5-10 minutes on first run):
+   ```bash
+   docker compose logs -f orderbook
+   # Wait for "Listening on 0.0.0.0:8080"
+   ```
+
+4. **Verify services are healthy:**
+   ```bash
+   docker compose ps
+   curl http://localhost:8080/api/v1/version
+   ```
+
+The services are ready when:
+- Anvil (chain) is running on port 8545
+- Orderbook API is responding on port 8080
+- Autopilot, Driver, and Solver are running
+
+### Running E2E Tests
+
+```bash
+# Run all E2E tests
+pytest tests/e2e/ -v -m e2e
+
+# Run specific test
+pytest tests/e2e/test_order_settlement.py::TestOrderSettlement::test_market_order_weth_to_dai_settlement -v
+
+# Run with verbose output (shows print statements)
+pytest tests/e2e/ -v -s -m e2e
+```
+
+### E2E Test Coverage
+
+Current e2e tests cover:
+
+- **Market Orders**: WETH→DAI and DAI→WETH
+- **Limit Orders**: With better-than-market pricing
+- **Multiple Orders**: Concurrent submission and settlement
+- **Safe Wallets**: Deployment and token approvals
+- **EIP-1271 Signatures**: Smart contract signature validation
+
+### E2E Test Markers
+
+```python
+@pytest.mark.e2e      # Marks as end-to-end test
+@pytest.mark.skip     # Skips test (for long-running or incomplete tests)
+```
+
+### E2E Environment Variables
+
+```bash
+# Anvil RPC URL (default: http://localhost:8545)
+export ANVIL_RPC_URL=http://localhost:8545
+
+# Orderbook API URL (default: http://localhost:8080)
+export ORDERBOOK_API_URL=http://localhost:8080
+
+# Run tests
+pytest tests/e2e/ -m e2e
+```
+
+### E2E Troubleshooting
+
+#### Services Not Ready
+
+```bash
+# Check all services are running
+docker compose ps
+
+# Check orderbook logs
+docker compose logs orderbook
+
+# Restart services
+docker compose restart
+```
+
+#### Orders Not Settling
+
+1. Check Autopilot logs: `docker compose logs autopilot`
+2. Check Solver logs: `docker compose logs baseline`
+3. Check Driver logs: `docker compose logs driver`
+4. Verify Anvil is producing blocks: `docker compose logs chain`
+
+Common issues:
+- Autopilot not running auctions (check SETTLE_INTERVAL)
+- Solver not finding solutions (check liquidity)
+- Gas price issues (check Anvil configuration)
+
+#### Token Funding Fails
+
+1. Check whale addresses have tokens on the forked block
+2. Verify Anvil fork is at recent block
+3. Check RPC endpoint is working
+
+#### "Anvil not connected"
+
+```bash
+# Check Anvil is running
+docker compose ps chain
+
+# Check Anvil logs
+docker compose logs chain
+
+# Try restarting
+docker compose restart chain
+```
+
+### Wallet Funding Integration Tests
+
+The wallet funding tests verify automatic wallet funding works correctly:
+
+```bash
+# Start Anvil in fork mode
+docker compose up -d
+
+# Run wallet funding tests
+pytest tests/integration/test_wallet_funding.py -v
+```
+
+What these tests verify:
+- ETH funding from Anvil's default account
+- Token balance manipulation using storage slots (WETH, DAI, USDC)
+- Token approvals for VaultRelayer contract
+- Full trader pool funding with multiple traders
+
+### E2E CI/CD Integration
+
+Example GitHub Actions workflow:
+
+```yaml
+- name: Start docker-compose
+  run: |
+    docker compose up -d
+    sleep 60  # Wait for services to be ready
+
+- name: Run e2e tests
+  run: |
+    pytest tests/e2e/ -m e2e -v
+
+- name: Stop docker-compose
+  run: docker compose down
+```
+
 ## Code Quality Tools
 
 ### Black (Code Formatting)
