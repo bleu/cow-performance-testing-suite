@@ -4,7 +4,6 @@ Pytest fixtures for end-to-end tests.
 These fixtures provide connections to the running docker-compose environment.
 """
 
-import json
 import os
 import time
 from typing import Any
@@ -278,78 +277,33 @@ def orderbook_client(orderbook_api_url: str) -> Any:
     """
     HTTP client for orderbook API.
 
-    Returns a simple object with helper methods for API calls.
+    Returns a synchronous wrapper around the async OrderbookClient for compatibility
+    with existing synchronous tests.
     """
+    import asyncio
 
-    class OrderbookClient:
+    from cow_performance.api import OrderbookClient as AsyncOrderbookClient
+
+    class SyncOrderbookClientWrapper:
+        """Synchronous wrapper for async OrderbookClient."""
+
         def __init__(self, base_url: str):
-            self.base_url = base_url
+            self.async_client = AsyncOrderbookClient(base_url, timeout=10)
 
         def submit_order(self, signed_order: dict) -> dict:
             """Submit a signed order to the orderbook."""
-            response = requests.post(
-                f"{self.base_url}/api/v1/orders",
-                json=signed_order,
-                timeout=10,
-            )
-            if not response.ok:
-                print(f"Order submission failed: {response.status_code}")
-                print(f"Response: {response.text}")
-            response.raise_for_status()
-            return response.json()
+            return asyncio.run(self.async_client.submit_order(signed_order))
 
         def get_order(self, order_uid: str) -> dict:
             """Get order details by UID."""
-            response = requests.get(
-                f"{self.base_url}/api/v1/orders/{order_uid}",
-                timeout=10,
-            )
-            response.raise_for_status()
-            return response.json()
+            return asyncio.run(self.async_client.get_order(order_uid))
 
         def get_trades(self, order_uid: str) -> list[dict]:
             """Get trades for an order."""
-            response = requests.get(
-                f"{self.base_url}/api/v1/orders/{order_uid}/trades",
-                timeout=10,
-            )
-            if response.status_code == 404:
-                return []
-            response.raise_for_status()
-            return response.json()
+            return asyncio.run(self.async_client.get_trades(order_uid))
 
         def upload_app_data(self, app_data_hash: str, app_data_doc: str | dict) -> dict:
-            """
-            Upload appData document to the orderbook.
+            """Upload appData document to the orderbook."""
+            return asyncio.run(self.async_client.upload_app_data(app_data_hash, app_data_doc))
 
-            Args:
-                app_data_hash: 32-byte hash of the appData document (with 0x prefix)
-                app_data_doc: Full appData JSON document (as string or dict)
-
-            Returns:
-                Response from the orderbook
-            """
-            # Parse app_data_doc to dict if it's a string
-            if isinstance(app_data_doc, str):
-                app_data_doc = json.loads(app_data_doc)
-
-            # Strip 0x prefix for the URL path
-            hash_without_prefix = (
-                app_data_hash[2:] if app_data_hash.startswith("0x") else app_data_hash
-            )
-
-            # The API expects the appData wrapped in a "fullAppData" field
-            request_body = {"fullAppData": json.dumps(app_data_doc)}
-
-            response = requests.put(
-                f"{self.base_url}/api/v1/app_data/{hash_without_prefix}",
-                json=request_body,
-                timeout=10,
-            )
-            if not response.ok:
-                print(f"AppData upload failed: {response.status_code}")
-                print(f"Response: {response.text}")
-            response.raise_for_status()
-            return response.json() if response.text else {}
-
-    return OrderbookClient(orderbook_api_url)
+    return SyncOrderbookClientWrapper(orderbook_api_url)
