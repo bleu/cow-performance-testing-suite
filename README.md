@@ -39,10 +39,44 @@ Comprehensive performance testing suite for the CoW Protocol Playground, enablin
    poetry shell
    ```
 
-4. **Verify installation:**
+4. **Configure environment variables:**
    ```bash
-   cow-perf --version
+   cp .env.example .env
    ```
+
+   Edit `.env` and set your Ethereum RPC URL:
+   ```bash
+   ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
+   ```
+
+5. **Start Docker Compose:**
+   ```bash
+   docker compose up -d
+   ```
+
+   > **Note:** On first startup, you may see "unhealthy" container errors. This is typically because services like the orderbook take time to initialize. The containers are still starting—wait a minute and check again with `docker compose ps`.
+
+6. **Verify installation:**
+   ```bash
+   cow-perf version
+   ```
+
+#### Alternative Setup (without Poetry)
+
+If you prefer using a standard Python virtual environment instead of Poetry:
+
+```bash
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Upgrade pip and install the project
+pip install --upgrade pip
+pip install -e .
+
+# Verify installation
+cow-perf --version
+```
 
 ### Your First Performance Test
 
