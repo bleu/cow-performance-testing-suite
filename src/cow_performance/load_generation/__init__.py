@@ -62,7 +62,10 @@ from .order_templates import (
     OrderTemplateRegistry,
     create_default_templates,
 )
-from .order_tracker import OrderMetadata, OrderMetrics, OrderStatus, OrderTracker
+# Re-export order metrics models from the metrics module for backward compatibility
+from cow_performance.metrics import OrderMetadata, OrderMetrics, OrderStatus
+
+from .order_tracker import OrderTracker
 from .order_validation import (
     OrderValidationError,
     assert_valid_order,
