@@ -1,0 +1,41 @@
+# CoW Performance Testing Suite Scenario
+# Light Load: Low-intensity baseline test for system health checks
+
+# Test configuration
+default_trader_count: 3
+default_duration: 120  # 2 minutes
+
+# Network settings
+network:
+  chain_id: 1
+  rpc_url: "http://localhost:8545"
+
+# Wallet funding (required for real orderbook testing)
+wallet:
+  funding_enabled: true
+  eth_balance: 10.0
+  token_balances:
+    WETH: 5.0
+    DAI: 5000.0
+
+# Trading pattern: Constant rate (simple and predictable)
+trading_pattern: "constant_rate"
+base_rate: 30.0  # 30 orders per minute (0.5 orders/sec)
+
+# Order type distribution (balanced)
+market_order_ratio: 0.5
+limit_order_ratio: 0.5
+twap_order_ratio: 0.0
+stop_loss_order_ratio: 0.0
+good_after_time_order_ratio: 0.0
+
+# No rate limiting needed for light load
+enable_global_rate_limit: false
+enable_per_trader_rate_limit: false
+
+# Use case: Quick smoke tests and health checks
+# - Verify basic system functionality
+# - Baseline performance measurement
+# - Continuous integration/deployment validation
+# - Development environment testing
+# - Expected: ~1.5 orders/sec total (3 traders × 0.5 orders/sec)

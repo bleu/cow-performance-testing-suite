@@ -107,18 +107,32 @@ async def run_performance_test(
 
         # Show pattern-specific parameters
         if config.trading_pattern in ("ramp_up", "ramp_down"):
-            console.print(f"  Ramp: {config.ramp_start_rate} → {config.ramp_target_rate} orders/min over {config.ramp_duration}s ({config.ramp_curve})")
+            console.print(
+                f"  Ramp: {config.ramp_start_rate} → {config.ramp_target_rate} orders/min over {config.ramp_duration}s ({config.ramp_curve})"
+            )
         elif config.trading_pattern == "spike":
-            console.print(f"  Spike: {config.spike_normal_rate} → {config.spike_burst_rate} orders/min for {config.spike_duration}s")
+            console.print(
+                f"  Spike: {config.spike_normal_rate} → {config.spike_burst_rate} orders/min for {config.spike_duration}s"
+            )
         elif config.trading_pattern == "poisson":
             console.print(f"  Poisson lambda: {config.poisson_lambda} events/min")
 
         # Show rate limiting if enabled
         if config.enable_global_rate_limit:
-            limit = config.max_orders_global_per_second or (config.max_orders_global_per_minute / 60.0)
+            if config.max_orders_global_per_second:
+                limit = config.max_orders_global_per_second
+            elif config.max_orders_global_per_minute:
+                limit = config.max_orders_global_per_minute / 60.0
+            else:
+                limit = 0.0
             console.print(f"  Global rate limit: {limit:.1f} orders/sec")
         if config.enable_per_trader_rate_limit:
-            limit = config.max_orders_per_trader_per_second or (config.max_orders_per_trader_per_minute / 60.0)
+            if config.max_orders_per_trader_per_second:
+                limit = config.max_orders_per_trader_per_second
+            elif config.max_orders_per_trader_per_minute:
+                limit = config.max_orders_per_trader_per_minute / 60.0
+            else:
+                limit = 0.0
             console.print(f"  Per-trader rate limit: {limit:.1f} orders/sec")
 
         console.print()
