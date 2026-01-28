@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from web3 import Web3
 
-from cow_performance.api import OrderbookClient
+from cow_performance.api import InstrumentedOrderbookClient
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
     OrchestrationConfig,
@@ -24,6 +24,8 @@ from cow_performance.load_generation import (
     create_mainnet_token_registry,
 )
 from cow_performance.load_generation.order_signer import ConditionalOrderSigner
+from cow_performance.metrics import MetricsStore
+from cow_performance.monitoring import ResourceMonitor, ResourceMonitorConfig
 
 from ..config import PerformanceTestConfig
 from ..output import (
@@ -224,10 +226,14 @@ async def run_performance_test(
         composable_cow_contract=config.network.composable_cow_contract,
     )
 
-    # Create order tracker
+    # Create shared metrics store for all components
+    metrics_store = MetricsStore()
+
+    # Create order tracker with metrics store
     order_tracker = OrderTracker(
         poll_interval=5.0,  # Poll every 5 seconds
         max_poll_attempts=12,  # Up to 60 seconds
+        metrics_store=metrics_store,
     )
 
     # Create trader behavior config from app config
@@ -252,10 +258,12 @@ async def run_performance_test(
     )
 
     # Create API client (skip in dry run mode)
+    # Use InstrumentedOrderbookClient for metrics collection
     api_client = None
     if not dry_run:
-        api_client = OrderbookClient(
+        api_client = InstrumentedOrderbookClient(
             base_url=config.api.base_url,
+            metrics_store=metrics_store,
             timeout=config.api.timeout,
             max_retries=config.api.max_retries,
         )
@@ -286,30 +294,52 @@ async def run_performance_test(
     shutdown_handler = GracefulShutdownHandler(orchestrator)
     signal.signal(signal.SIGINT, shutdown_handler.handle_signal)
 
-    # Run the test with progress display
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[bold blue]{task.description}"),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task(
-            f"Running performance test with {num_traders} traders...",
-            total=None,
+    # Create resource monitor (only if not dry-run)
+    resource_monitor = None
+    if not dry_run:
+        resource_config = ResourceMonitorConfig(
+            service_patterns=["orderbook", "autopilot", "driver", "baseline", "chain"],
+            sample_interval=5.0,
         )
+        resource_monitor = ResourceMonitor(metrics_store, resource_config)
 
-        try:
-            # Start test
-            start_time = datetime.now()
-            await orchestrator.run()
-            end_time = datetime.now()
+    # Start resource monitoring before test
+    if resource_monitor:
+        await resource_monitor.start()
+        if verbose and resource_monitor.is_running():
+            containers = resource_monitor.get_monitored_containers()
+            console.print(f"[cyan]Resource Monitor:[/cyan] Monitoring {len(containers)} containers")
+            console.print()
 
-            progress.update(task, description="[bold green]Test completed!")
+    # Run the test with progress display
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"Running performance test with {num_traders} traders...",
+                total=None,
+            )
 
-        except Exception as e:
-            progress.update(task, description="[bold red]Test failed!")
-            console.print(f"\n[bold red]Error:[/bold red] {e}")
-            raise
+            try:
+                # Start test
+                start_time = datetime.now()
+                await orchestrator.run()
+                end_time = datetime.now()
+
+                progress.update(task, description="[bold green]Test completed!")
+
+            except Exception as e:
+                progress.update(task, description="[bold red]Test failed!")
+                console.print(f"\n[bold red]Error:[/bold red] {e}")
+                raise
+    finally:
+        # Stop resource monitoring
+        if resource_monitor:
+            await resource_monitor.stop()
 
     # Get metrics
     metrics = orchestrator.get_metrics()
@@ -361,6 +391,9 @@ async def run_performance_test(
     metrics["performance"]["avg_order_latency_ms"] = (
         (elapsed * 1000 / total_orders) if total_orders > 0 else 0.0
     )
+
+    # Add metrics store summary (API metrics, resource metrics)
+    metrics["metrics_store"] = metrics_store.summary()
 
     return metrics
 
