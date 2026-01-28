@@ -198,6 +198,9 @@ class TraderSimulator:
         if not self.order_cleanup_config or not self.order_cleanup_config.enabled:
             return
 
+        if self.api_client is None:
+            return
+
         while self._running:
             try:
                 # Check current order count
@@ -218,6 +221,9 @@ class TraderSimulator:
     async def _cleanup_orders(self) -> None:
         """Cancel oldest orders to stay under limit."""
         if not self.order_cleanup_config:
+            return
+
+        if self.api_client is None:
             return
 
         config = self.order_cleanup_config
@@ -304,7 +310,9 @@ class TraderSimulator:
         if self.api_client is not None:
             try:
                 # Submit order to orderbook API and get the real UID
-                response = await self.api_client.submit_order(signed_order.model_dump(by_alias=True))
+                response = await self.api_client.submit_order(
+                    signed_order.model_dump(by_alias=True)
+                )
 
                 # The API returns the order UID as a string (or in a dict with "uid" key)
                 if isinstance(response, str):

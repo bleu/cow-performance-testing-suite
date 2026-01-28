@@ -183,7 +183,9 @@ class OrderbookClient:
 
         # The API expects the appData wrapped in a "fullAppData" field
         # IMPORTANT: Use consistent serialization to match hash computation
-        request_body = {"fullAppData": json.dumps(app_data_doc, separators=(",", ":"), sort_keys=True)}
+        request_body = {
+            "fullAppData": json.dumps(app_data_doc, separators=(",", ":"), sort_keys=True)
+        }
 
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.put(

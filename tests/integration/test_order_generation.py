@@ -67,7 +67,7 @@ def trader_accounts() -> list[Account]:
 class TestBulkOrderGeneration:
     """Tests for generating large batches of orders."""
 
-    def test_generate_100_orders_all_valid(
+    async def test_generate_100_orders_all_valid(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -84,9 +84,9 @@ class TestBulkOrderGeneration:
 
             # Mix of market and limit orders
             if i % 2 == 0:
-                order = mainnet_factory.create_market_order(trader)
+                order = await mainnet_factory.create_market_order(trader)
             else:
-                order = mainnet_factory.create_limit_order(trader)
+                order = await mainnet_factory.create_limit_order(trader)
 
             all_orders.append(order)
 
@@ -109,7 +109,8 @@ class TestBulkOrderGeneration:
             # Check amounts are positive
             assert int(order.sellAmount) > 0, f"Order {i} has non-positive sellAmount"
             assert int(order.buyAmount) > 0, f"Order {i} has non-positive buyAmount"
-            assert int(order.feeAmount) > 0, f"Order {i} has non-positive feeAmount"
+            # Note: feeAmount can be 0 for market orders (fee included in buyAmount via surplus)
+            assert int(order.feeAmount) >= 0, f"Order {i} has negative feeAmount"
 
             # Check signature format
             assert order.signature.startswith("0x"), f"Order {i} signature missing 0x prefix"
@@ -119,7 +120,7 @@ class TestBulkOrderGeneration:
             errors = validate_signed_order(order)
             assert len(errors) == 0, f"Order {i} validation failed: {errors}"
 
-    def test_generate_orders_all_token_pairs(
+    async def test_generate_orders_all_token_pairs(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -134,7 +135,7 @@ class TestBulkOrderGeneration:
 
         # Generate at least one order for each token pair
         for pair in token_pairs:
-            order = mainnet_factory.create_market_order(
+            order = await mainnet_factory.create_market_order(
                 trader,
                 token_pair=pair,
             )
@@ -154,7 +155,7 @@ class TestBulkOrderGeneration:
             errors = validate_signed_order(order)
             assert len(errors) == 0, f"Order for {pair_key} validation failed: {errors}"
 
-    def test_batch_orders_generation(
+    async def test_batch_orders_generation(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """Test batch order generation with different ratios."""
@@ -162,7 +163,7 @@ class TestBulkOrderGeneration:
 
         # Test with different market/limit ratios
         for ratio in [0.0, 0.25, 0.5, 0.75, 1.0]:
-            orders = mainnet_factory.create_batch_orders(
+            orders = await mainnet_factory.create_batch_orders(
                 trader,
                 count=20,
                 market_order_ratio=ratio,
@@ -180,7 +181,7 @@ class TestBulkOrderGeneration:
 class TestOrderSerialization:
     """Tests for order serialization and deserialization."""
 
-    def test_order_serialization_deserialization(
+    async def test_order_serialization_deserialization(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -192,9 +193,9 @@ class TestOrderSerialization:
         trader = trader_accounts[0]
 
         # Generate various types of orders
-        market_order = mainnet_factory.create_market_order(trader)
-        limit_order = mainnet_factory.create_limit_order(trader)
-        buy_order = mainnet_factory.create_market_order(trader, kind=OrderKind.BUY)
+        market_order = await mainnet_factory.create_market_order(trader)
+        limit_order = await mainnet_factory.create_limit_order(trader)
+        buy_order = await mainnet_factory.create_market_order(trader, kind=OrderKind.BUY)
 
         orders = [market_order, limit_order, buy_order]
 
@@ -230,7 +231,7 @@ class TestOrderSerialization:
             errors = validate_signed_order(deserialized_order)
             assert len(errors) == 0
 
-    def test_order_json_format_matches_api_spec(
+    async def test_order_json_format_matches_api_spec(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -239,7 +240,7 @@ class TestOrderSerialization:
         The API expects specific field names (e.g., 'from' not 'from_').
         """
         trader = trader_accounts[0]
-        order = mainnet_factory.create_market_order(trader)
+        order = await mainnet_factory.create_market_order(trader)
 
         # Serialize with aliases (API format)
         order_dict = order.model_dump(by_alias=True, exclude_none=True)
@@ -273,14 +274,14 @@ class TestOrderSerialization:
 class TestMultiNetworkSupport:
     """Tests for generating orders on different networks."""
 
-    def test_mainnet_orders_generation(
+    async def test_mainnet_orders_generation(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """Test generating orders for Ethereum mainnet."""
         trader = trader_accounts[0]
 
         # Generate multiple orders
-        orders = mainnet_factory.create_batch_orders(trader, count=10)
+        orders = await mainnet_factory.create_batch_orders(trader, count=10)
 
         for order in orders:
             # All orders should be valid
@@ -292,14 +293,14 @@ class TestMultiNetworkSupport:
             assert order.sellToken.startswith("0x")
             assert order.buyToken.startswith("0x")
 
-    def test_polygon_orders_generation(
+    async def test_polygon_orders_generation(
         self, polygon_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """Test generating orders for Polygon."""
         trader = trader_accounts[0]
 
         # Generate multiple orders
-        orders = polygon_factory.create_batch_orders(trader, count=10)
+        orders = await polygon_factory.create_batch_orders(trader, count=10)
 
         for order in orders:
             # All orders should be valid
@@ -311,7 +312,7 @@ class TestMultiNetworkSupport:
 class TestOrderTemplates:
     """Integration tests for order templates."""
 
-    def test_all_default_templates_generate_valid_orders(
+    async def test_all_default_templates_generate_valid_orders(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -329,7 +330,7 @@ class TestOrderTemplates:
 
         for template_name in template_names:
             # Generate order from template
-            order = template_registry.create_order_from_template(
+            order = await template_registry.create_order_from_template(
                 template_name=template_name,
                 factory=mainnet_factory,
                 trader_account=trader,
@@ -339,7 +340,7 @@ class TestOrderTemplates:
             errors = validate_signed_order(order)
             assert len(errors) == 0, f"Template {template_name} generated invalid order: {errors}"
 
-    def test_template_with_overrides(
+    async def test_template_with_overrides(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """Test template orders with parameter overrides."""
@@ -347,7 +348,7 @@ class TestOrderTemplates:
         trader = trader_accounts[0]
 
         # Use small_market template with overrides
-        order = template_registry.create_order_from_template(
+        order = await template_registry.create_order_from_template(
             template_name="small_market",
             factory=mainnet_factory,
             trader_account=trader,
@@ -366,7 +367,7 @@ class TestOrderTemplates:
 class TestOrderVariety:
     """Tests for order generation variety and randomness."""
 
-    def test_orders_have_variety(
+    async def test_orders_have_variety(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -377,7 +378,7 @@ class TestOrderVariety:
         trader = trader_accounts[0]
 
         # Generate 50 orders
-        orders = mainnet_factory.create_batch_orders(trader, count=50)
+        orders = await mainnet_factory.create_batch_orders(trader, count=50)
 
         # Collect unique values
         sell_amounts = {order.sellAmount for order in orders}
@@ -391,14 +392,14 @@ class TestOrderVariety:
         # Should use multiple token pairs
         assert len(token_pairs) > 1, "Orders use only one token pair"
 
-    def test_orders_use_different_traders(
+    async def test_orders_use_different_traders(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """Test generating orders from different trader accounts."""
         orders = []
 
         for trader in trader_accounts:
-            order = mainnet_factory.create_market_order(trader)
+            order = await mainnet_factory.create_market_order(trader)
             orders.append(order)
 
         # Each order should have different owner
@@ -416,7 +417,7 @@ class TestOrderVariety:
 class TestStressOrderGeneration:
     """Stress tests for order generation."""
 
-    def test_generate_1000_orders_performance(
+    async def test_generate_1000_orders_performance(
         self, mainnet_factory: OrderFactory, trader_accounts: list[Account]
     ) -> None:
         """
@@ -433,7 +434,7 @@ class TestStressOrderGeneration:
         # Generate 1000 orders
         all_orders = []
         for _ in range(10):
-            batch = mainnet_factory.create_batch_orders(trader, count=100)
+            batch = await mainnet_factory.create_batch_orders(trader, count=100)
             all_orders.extend(batch)
 
         elapsed_time = time.time() - start_time

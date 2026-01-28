@@ -78,9 +78,7 @@ class OrderFactory:
             raise ValueError("Fee percentage must be between 0 and 1")
 
         # Generate appData with orderClass metadata
-        self.market_app_data_hash, self.market_app_data_doc = create_app_data(
-            OrderClass.MARKET
-        )
+        self.market_app_data_hash, self.market_app_data_doc = create_app_data(OrderClass.MARKET)
         self.limit_app_data_hash, self.limit_app_data_doc = create_app_data(OrderClass.LIMIT)
 
     def _generate_random_amount(self, min_amount: float, max_amount: float) -> float:

@@ -32,7 +32,9 @@ class OrchestrationConfig:
     restart_on_failure: bool = True  # Restart traders on failure
     max_restarts_per_trader: int = 3  # Maximum restart attempts
     graceful_shutdown_timeout: float = 10.0  # Timeout for graceful shutdown
-    settlement_wait_time: float = 300.0  # Seconds to wait after test for orders to settle (default 5 min)
+    settlement_wait_time: float = (
+        300.0  # Seconds to wait after test for orders to settle (default 5 min)
+    )
 
 
 class TraderOrchestrator:

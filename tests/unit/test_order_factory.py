@@ -72,7 +72,9 @@ class TestOrderFactory:
             )
 
     @pytest.mark.asyncio
-    async def test_create_market_order(self, factory: OrderFactory, trader_account: Account) -> None:
+    async def test_create_market_order(
+        self, factory: OrderFactory, trader_account: Account
+    ) -> None:
         """Test creating a market order."""
         order = await factory.create_market_order(trader_account)
 
@@ -141,7 +143,9 @@ class TestOrderFactory:
         assert order.kind == OrderKind.BUY
 
     @pytest.mark.asyncio
-    async def test_create_batch_orders(self, factory: OrderFactory, trader_account: Account) -> None:
+    async def test_create_batch_orders(
+        self, factory: OrderFactory, trader_account: Account
+    ) -> None:
         """Test creating batch orders."""
         orders = await factory.create_batch_orders(trader_account, count=10)
 
@@ -183,7 +187,9 @@ class TestOrderFactory:
             await factory.create_batch_orders(trader_account, count=5, market_order_ratio=1.5)
 
     @pytest.mark.asyncio
-    async def test_order_signature_valid(self, factory: OrderFactory, trader_account: Account) -> None:
+    async def test_order_signature_valid(
+        self, factory: OrderFactory, trader_account: Account
+    ) -> None:
         """Test that order signatures are valid."""
         order = await factory.create_market_order(trader_account)
 
@@ -192,7 +198,9 @@ class TestOrderFactory:
         assert len(order.signature) >= 132
 
     @pytest.mark.asyncio
-    async def test_order_valid_to_in_future(self, factory: OrderFactory, trader_account: Account) -> None:
+    async def test_order_valid_to_in_future(
+        self, factory: OrderFactory, trader_account: Account
+    ) -> None:
         """Test that order validTo is in the future."""
         order = await factory.create_market_order(trader_account)
         current_time = int(time.time())

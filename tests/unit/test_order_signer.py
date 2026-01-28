@@ -125,7 +125,9 @@ class TestOrderSigner:
         assert is_valid is False
 
     @pytest.mark.asyncio
-    async def test_different_traders_produce_different_signatures(self, order_signer, order_factory):
+    async def test_different_traders_produce_different_signatures(
+        self, order_signer, order_factory
+    ):
         """Test that different traders produce different signatures for same order."""
         trader1 = TraderAccount.generate()
         trader2 = TraderAccount.generate()
