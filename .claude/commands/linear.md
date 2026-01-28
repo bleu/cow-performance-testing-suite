@@ -63,7 +63,7 @@ A typical workflow progression (customize to your team's needs):
 
 ### Default Values
 
-- **Status**: Always create new tickets in "Triage" or your team's equivalent initial status
+- **Status**: Always create new tickets in **"Backlog"** unless explicitly requested otherwise (see Configuration Section for state IDs)
 - **Priority**: Default to Medium (3) for most tasks, use best judgment or ask user
   - Urgent (1): Critical blockers, security issues
   - High (2): Important features with deadlines, major bugs
@@ -259,22 +259,27 @@ Avoid:
 
 ## Configuration Section
 
-**NOTE:** Add your team-specific IDs below after setting up Linear:
+**Project Defaults for cow-performance-testing-suite:**
 
 ```yaml
-# Example - replace with your actual IDs
-team_id: "your-team-id-here"
-project_id: "your-default-project-id"
+# Team and Project
+team: "CoW"
+team_id: "b4475174-7425-4382-94ae-00e67a976aba"
+project: "cow-performance-testing-suite"
+project_id: "c45aaee0-00a1-434d-ad49-cc0a3d180947"
 
-# Workflow states (run mcp__linear__list_workflow_states to get these)
+# Workflow states for CoW team
 states:
-  triage: "state-id"
-  backlog: "state-id"
-  in_progress: "state-id"
-  done: "state-id"
-
-# Labels (run mcp__linear__list_labels to get these)
-labels:
-  bug: "label-id"
-  feature: "label-id"
+  triage: "323433fd-e2b8-49ca-868f-90471880a989"
+  backlog: "7821d360-a3b0-427c-b59d-ef38a90ff00d"    # DEFAULT for new issues
+  todo: "cd540394-6cd5-4c74-94c7-9560cf51a3d8"
+  in_progress: "2db12e1e-fee7-4c39-8b4b-03b48b50f129"
+  in_review: "8f1f5acc-e115-4b6b-b0c4-2dc1453afc7b"
+  done: "0bb29032-6d2a-4b80-a6a1-50a5ecbc4dcd"
+  canceled: "99b62703-b95a-4e24-bbc7-fb02bf76c654"
 ```
+
+**IMPORTANT**: When creating new issues in this project:
+- Always use **team: "CoW"** and **project: "cow-performance-testing-suite"**
+- Default status is **Backlog** (not Triage) unless explicitly requested otherwise
+- Use the state IDs above when setting status

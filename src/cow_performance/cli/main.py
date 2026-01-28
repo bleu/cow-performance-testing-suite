@@ -56,7 +56,10 @@ def run(
         None, "--duration", "-d", help="Test duration in seconds"
     ),
     settlement_wait: Optional[int] = typer.Option(
-        None, "--settlement-wait", "-w", help="Seconds to wait after test for settlements (default 300)"
+        None,
+        "--settlement-wait",
+        "-w",
+        help="Seconds to wait after test for settlements (default 300)",
     ),
     config_file: Optional[str] = typer.Option(
         None, "--config", "-c", help="Path to configuration file"

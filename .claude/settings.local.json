@@ -16,7 +16,9 @@
       "Bash(python -m mypy:*)",
       "Bash(cow-perf run:*)",
       "Bash(python -m ruff check:*)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(gh api:*)",
+      "Bash(gh auth status:*)"
     ]
   }
 }

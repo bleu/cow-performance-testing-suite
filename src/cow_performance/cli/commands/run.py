@@ -91,7 +91,9 @@ async def run_performance_test(
     # Use overrides or config defaults
     num_traders = traders if traders is not None else config.default_trader_count
     test_duration = duration if duration is not None else config.default_duration
-    settlement_wait_time = settlement_wait if settlement_wait is not None else 300.0  # Default 5 minutes
+    settlement_wait_time = (
+        settlement_wait if settlement_wait is not None else 300.0
+    )  # Default 5 minutes
 
     if verbose:
         console.print("[bold cyan]Configuration:[/bold cyan]")
