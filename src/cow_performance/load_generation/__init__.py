@@ -76,6 +76,11 @@ from .order_validation import (
     validate_signed_order,
 )
 from .safe_wallet import SafeWallet, deploy_safe_wallet
+from .status_mapping import (
+    COW_API_STATUS_MAPPING,
+    is_api_status_terminal,
+    map_api_status_to_order_status,
+)
 from .token_pair import (
     Token,
     TokenPair,
@@ -164,6 +169,9 @@ __all__ = [
     "OrderMetadata",
     "OrderMetrics",
     "OrderTracker",
+    "COW_API_STATUS_MAPPING",
+    "is_api_status_terminal",
+    "map_api_status_to_order_status",
     "TradingPattern",
     "TraderBehaviorConfig",
     "TraderSimulator",
