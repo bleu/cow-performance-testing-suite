@@ -113,7 +113,7 @@ class OrderTemplateRegistry:
         """
         return list(self._templates.keys())
 
-    def create_order_from_template(
+    async def create_order_from_template(
         self,
         template_name: str,
         factory: OrderFactory,
@@ -160,7 +160,7 @@ class OrderTemplateRegistry:
 
         # Create order based on template type
         if template.order_type == "market":
-            return factory.create_market_order(
+            return await factory.create_market_order(
                 trader_account=trader_account,
                 token_pair=token_pair,
                 sell_amount=sell_amount,
@@ -168,7 +168,7 @@ class OrderTemplateRegistry:
             )
         else:  # limit
             limit_price = overrides.get("limit_price", template.limit_price)
-            return factory.create_limit_order(
+            return await factory.create_limit_order(
                 trader_account=trader_account,
                 token_pair=token_pair,
                 limit_price=limit_price,

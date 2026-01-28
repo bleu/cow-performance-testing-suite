@@ -32,6 +32,7 @@ class OrchestrationConfig:
     restart_on_failure: bool = True  # Restart traders on failure
     max_restarts_per_trader: int = 3  # Maximum restart attempts
     graceful_shutdown_timeout: float = 10.0  # Timeout for graceful shutdown
+    settlement_wait_time: float = 300.0  # Seconds to wait after test for orders to settle (default 5 min)
 
 
 class TraderOrchestrator:
@@ -198,6 +199,79 @@ class TraderOrchestrator:
             print(f"Warning: Failed to upload appData documents: {e}")
             print("Continuing with simulation - orders may not be classified correctly")
 
+    async def _wait_for_settlements(self, wait_time: float) -> None:
+        """
+        Wait for pending orders to settle after test completes.
+
+        Continues monitoring order status during the wait period to detect
+        fills, expirations, and other terminal states.
+
+        Args:
+            wait_time: Seconds to wait for settlements
+        """
+        if self.api_client is None:
+            return
+
+        # Get all non-terminal orders
+        all_orders = self.order_tracker.get_all_orders()
+        pending_orders = [o for o in all_orders if not o.is_terminal_state()]
+
+        if not pending_orders:
+            print("No pending orders to monitor")
+            return
+
+        print(f"Monitoring {len(pending_orders)} pending orders...")
+
+        # Monitor orders with polling
+        start_time = time.time()
+        poll_interval = 10.0  # Poll every 10 seconds during settlement
+        last_filled_count = 0
+
+        while time.time() - start_time < wait_time:
+            # Poll all pending orders
+            for order in pending_orders:
+                if order.is_terminal_state():
+                    continue
+
+                try:
+                    # Poll status from API
+                    # Update will happen inside poll_order_status if status changed
+                    await self.order_tracker.poll_order_status(
+                        order.order_uid,
+                        self.api_client,
+                    )
+                except Exception:
+                    # Continue monitoring even if one order fails
+                    continue
+
+            # Update pending list and show progress
+            all_orders = self.order_tracker.get_all_orders()
+            pending_orders = [o for o in all_orders if not o.is_terminal_state()]
+            filled_orders = [o for o in all_orders if o.current_status.value == "filled"]
+
+            filled_count = len(filled_orders)
+            if filled_count > last_filled_count:
+                print(
+                    f"  Progress: {filled_count} filled, "
+                    f"{len(pending_orders)} pending "
+                    f"({int(time.time() - start_time)}s elapsed)"
+                )
+                last_filled_count = filled_count
+
+            # If all orders are settled, we can exit early
+            if not pending_orders:
+                print("All orders settled!")
+                break
+
+            # Wait before next poll
+            await asyncio.sleep(poll_interval)
+
+        # Final summary
+        final_orders = self.order_tracker.get_all_orders()
+        filled = len([o for o in final_orders if o.current_status.value == "filled"])
+        pending = len([o for o in final_orders if not o.is_terminal_state()])
+        print(f"Settlement wait completed: {filled} filled, {pending} still pending")
+
     async def run(self) -> None:
         """
         Run the orchestrated trader simulation.
@@ -233,9 +307,19 @@ class TraderOrchestrator:
             # Wait for all traders to complete
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
+            print("All traders completed")
+
+            # Wait for pending orders to settle
+            if config.settlement_wait_time > 0 and self.api_client is not None:
+                print(
+                    f"\nWaiting {config.settlement_wait_time:.0f} seconds for "
+                    "pending orders to settle..."
+                )
+                await self._wait_for_settlements(config.settlement_wait_time)
+                print("Settlement monitoring completed")
+
         finally:
             self._running = False
-            print("All traders completed")
 
     async def start(self) -> asyncio.Task:
         """

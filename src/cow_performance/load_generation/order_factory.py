@@ -8,6 +8,7 @@ orders with configurable parameters, token pairs, and amounts.
 import random
 import time
 from decimal import Decimal
+from typing import Any
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -42,6 +43,7 @@ class OrderFactory:
         valid_duration: int = 300,
         default_app_data: str = "0x0000000000000000000000000000000000000000000000000000000000000000",
         fee_percentage: float = 0.001,
+        api_client: Any | None = None,
     ) -> None:
         """
         Initialize the order factory.
@@ -54,6 +56,7 @@ class OrderFactory:
             valid_duration: Order validity duration in seconds (default: 300 = 5 minutes)
             default_app_data: Default appData hash (default: zero hash)
             fee_percentage: Fee as percentage of sell amount (default: 0.1%)
+            api_client: Optional API client for getting quotes (enables realistic pricing)
         """
         self.token_pair_registry = token_pair_registry
         self.chain_id = chain_id
@@ -62,6 +65,7 @@ class OrderFactory:
         self.valid_duration = valid_duration
         self.default_app_data = default_app_data
         self.fee_percentage = fee_percentage
+        self.api_client = api_client
 
         # Validate configuration
         if self.amount_range[0] <= 0:
@@ -129,6 +133,39 @@ class OrderFactory:
 
         return max(1, buy_amount_wei)  # Ensure at least 1 wei
 
+    def _get_market_rate_fallback(self, sell_token_symbol: str, buy_token_symbol: str) -> Decimal:
+        """
+        Get approximate market rate for common token pairs as fallback.
+
+        This provides realistic pricing when quote API fails, ensuring orders
+        are economically viable for solvers.
+
+        Args:
+            sell_token_symbol: Symbol of token being sold
+            buy_token_symbol: Symbol of token being bought
+
+        Returns:
+            Approximate exchange rate (sell token → buy token)
+        """
+        # Approximate USD values for common tokens (mainnet fork)
+        usd_values = {
+            "WETH": Decimal(3000),  # ~$3000
+            "DAI": Decimal(1),  # $1
+            "USDC": Decimal(1),  # $1
+            "USDT": Decimal(1),  # $1
+        }
+
+        # Get USD values for both tokens
+        sell_usd = usd_values.get(sell_token_symbol, Decimal(1))
+        buy_usd = usd_values.get(buy_token_symbol, Decimal(1))
+
+        # Calculate exchange rate with 10% surplus for solver profitability
+        # Surplus makes the order more favorable to buyers (solvers)
+        market_rate = sell_usd / buy_usd
+        surplus_factor = Decimal("0.90")  # Give 10% better price to solver
+
+        return market_rate * surplus_factor
+
     def _calculate_fee_amount(self, sell_amount_wei: int) -> int:
         """
         Calculate fee amount based on sell amount.
@@ -154,7 +191,7 @@ class OrderFactory:
         """
         return int(time.time()) + self.valid_duration
 
-    def create_market_order(
+    async def create_market_order(
         self,
         trader_account: LocalAccount,
         token_pair: TokenPair | None = None,
@@ -188,16 +225,48 @@ class OrderFactory:
         # Convert to wei
         sell_amount_wei = token_pair.sell_token.to_wei(sell_amount)
 
-        # Calculate buy amount (market orders typically use current price)
-        buy_amount_wei = self._calculate_buy_amount(
-            sell_amount_wei,
-            token_pair.sell_token.decimals,
-            token_pair.buy_token.decimals,
-            price=Decimal(1),  # Simplified 1:1 price for testing
-        )
-
-        # Calculate fee
-        fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
+        # Get realistic quote with surplus if API client available
+        if self.api_client is not None:
+            try:
+                quote = await self.api_client.get_quote(
+                    sell_token=token_pair.sell_token.address,
+                    buy_token=token_pair.buy_token.address,
+                    sell_amount=str(sell_amount_wei),
+                    from_address=trader_account.address,
+                    kind=kind.value,
+                    app_data=self.market_app_data_hash,  # Include appData for accurate quote
+                )
+                # Use quoted buy amount (includes surplus for solver profitability)
+                # Fee is already accounted for in the quote, so we set feeAmount to 0
+                buy_amount_wei = int(quote["quote"]["buyAmount"])
+                fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
+            except Exception as e:
+                # Fallback to approximate market rates with surplus
+                print(f"Warning: Quote failed ({e}), using fallback pricing")
+                fallback_rate = self._get_market_rate_fallback(
+                    token_pair.sell_token.symbol,
+                    token_pair.buy_token.symbol,
+                )
+                buy_amount_wei = self._calculate_buy_amount(
+                    sell_amount_wei,
+                    token_pair.sell_token.decimals,
+                    token_pair.buy_token.decimals,
+                    price=fallback_rate,
+                )
+                fee_amount_wei = 0  # Use zero fee in fallback mode
+        else:
+            # No API client - use approximate market rates (dry-run mode)
+            fallback_rate = self._get_market_rate_fallback(
+                token_pair.sell_token.symbol,
+                token_pair.buy_token.symbol,
+            )
+            buy_amount_wei = self._calculate_buy_amount(
+                sell_amount_wei,
+                token_pair.sell_token.decimals,
+                token_pair.buy_token.decimals,
+                price=fallback_rate,
+            )
+            fee_amount_wei = 0  # Use zero fee in dry-run mode
 
         # Market orders have shorter expiration (2 minutes) for immediate execution
         market_valid_to = int(time.time()) + 120  # 120 seconds = 2 minutes
@@ -224,7 +293,7 @@ class OrderFactory:
         # Sign order
         return self._sign_order(params, trader_account)
 
-    def create_limit_order(
+    async def create_limit_order(
         self,
         trader_account: LocalAccount,
         token_pair: TokenPair | None = None,
@@ -257,25 +326,59 @@ class OrderFactory:
         if sell_amount is None:
             sell_amount = self._generate_random_amount(*self.amount_range)
 
-        # Generate limit price if not provided
-        if limit_price is None:
-            # Generate random price variation (±10% from 1:1)
-            price_variation = Decimal(str(random.uniform(0.9, 1.1)))
-            limit_price = Decimal(1) * price_variation
-
         # Convert to wei
         sell_amount_wei = token_pair.sell_token.to_wei(sell_amount)
 
-        # Calculate buy amount based on limit price
-        buy_amount_wei = self._calculate_buy_amount(
-            sell_amount_wei,
-            token_pair.sell_token.decimals,
-            token_pair.buy_token.decimals,
-            price=limit_price,
-        )
-
-        # Calculate fee
-        fee_amount_wei = self._calculate_fee_amount(sell_amount_wei)
+        # Get realistic quote with surplus if API client available
+        if self.api_client is not None:
+            try:
+                quote = await self.api_client.get_quote(
+                    sell_token=token_pair.sell_token.address,
+                    buy_token=token_pair.buy_token.address,
+                    sell_amount=str(sell_amount_wei),
+                    from_address=trader_account.address,
+                    kind=kind.value,
+                    app_data=self.limit_app_data_hash,  # Include appData for accurate quote
+                )
+                # Use quoted buy amount (includes surplus for solver profitability)
+                # Fee is already accounted for in the quote, so we set feeAmount to 0
+                buy_amount_wei = int(quote["quote"]["buyAmount"])
+                fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
+            except Exception as e:
+                # Fallback to approximate market rates with variation
+                print(f"Warning: Quote failed ({e}), using fallback pricing")
+                if limit_price is None:
+                    # Use market rate with ±10% variation for limit orders
+                    market_rate = self._get_market_rate_fallback(
+                        token_pair.sell_token.symbol,
+                        token_pair.buy_token.symbol,
+                    )
+                    price_variation = Decimal(str(random.uniform(0.9, 1.1)))
+                    limit_price = market_rate * price_variation
+                buy_amount_wei = self._calculate_buy_amount(
+                    sell_amount_wei,
+                    token_pair.sell_token.decimals,
+                    token_pair.buy_token.decimals,
+                    price=limit_price,
+                )
+                fee_amount_wei = 0  # Use zero fee in fallback mode
+        else:
+            # No API client - use approximate market rates (dry-run mode)
+            if limit_price is None:
+                # Use market rate with ±10% variation for limit orders
+                market_rate = self._get_market_rate_fallback(
+                    token_pair.sell_token.symbol,
+                    token_pair.buy_token.symbol,
+                )
+                price_variation = Decimal(str(random.uniform(0.9, 1.1)))
+                limit_price = market_rate * price_variation
+            buy_amount_wei = self._calculate_buy_amount(
+                sell_amount_wei,
+                token_pair.sell_token.decimals,
+                token_pair.buy_token.decimals,
+                price=limit_price,
+            )
+            fee_amount_wei = 0  # Use zero fee in dry-run mode
 
         # Limit orders use configured valid_duration (default 300s = 5 minutes)
         # In production, this would typically be hours to days
@@ -290,7 +393,7 @@ class OrderFactory:
             appData=self.limit_app_data_hash,  # Use limit-specific appData
             feeAmount=str(fee_amount_wei),
             kind=kind,
-            partiallyFillable=True,  # Limit orders allow gradual fills
+            partiallyFillable=False,  # Fill-or-kill (orderbook doesn't support partial fills)
             sellTokenBalance=OrderBalance.ERC20,
             buyTokenBalance=OrderBalance.ERC20,
             receiver=None,
@@ -386,7 +489,7 @@ class OrderFactory:
 
         return signed_order
 
-    def create_batch_orders(
+    async def create_batch_orders(
         self,
         trader_account: LocalAccount,
         count: int,
@@ -412,9 +515,9 @@ class OrderFactory:
         for _ in range(count):
             # Randomly decide order type based on ratio
             if random.random() < market_order_ratio:
-                order = self.create_market_order(trader_account)
+                order = await self.create_market_order(trader_account)
             else:
-                order = self.create_limit_order(trader_account)
+                order = await self.create_limit_order(trader_account)
             orders.append(order)
 
         return orders

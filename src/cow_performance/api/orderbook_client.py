@@ -80,6 +80,60 @@ class OrderbookClient:
                 result: dict[str, Any] = await response.json()
                 return result
 
+    async def get_quote(
+        self,
+        sell_token: str,
+        buy_token: str,
+        sell_amount: str,
+        from_address: str,
+        kind: str = "sell",
+        app_data: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a quote for an order with realistic pricing and surplus.
+
+        The quote includes market price with slippage/surplus to ensure
+        orders are profitable for solvers.
+
+        Args:
+            sell_token: Address of token to sell
+            buy_token: Address of token to buy
+            sell_amount: Amount to sell in wei (as string)
+            from_address: Trader address
+            kind: Order kind ("sell" or "buy")
+            app_data: Optional appData hash to include in quote request
+
+        Returns:
+            Quote response with buyAmount, feeAmount, etc.
+
+        Raises:
+            aiohttp.ClientError: If request fails
+        """
+        quote_request = {
+            "sellToken": sell_token,
+            "buyToken": buy_token,
+            "sellAmountBeforeFee": sell_amount,
+            "from": from_address,
+            "kind": kind,
+            "priceQuality": "optimal",  # Get best available price
+        }
+
+        # Include appData if provided - ensures quote matches order parameters
+        if app_data:
+            quote_request["appData"] = app_data
+
+        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            async with session.post(
+                f"{self.base_url}/api/v1/quote",
+                json=quote_request,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise aiohttp.ClientError(
+                        f"Quote request failed: {response.status}, message='{error_text}'"
+                    )
+                result: dict[str, Any] = await response.json()
+                return result
+
     async def get_trades(self, order_uid: str) -> list[dict[str, Any]]:
         """Get trades for an order.
 

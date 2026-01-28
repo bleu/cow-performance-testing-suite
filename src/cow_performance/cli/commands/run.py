@@ -65,6 +65,7 @@ async def run_performance_test(
     config: PerformanceTestConfig,
     traders: int | None = None,
     duration: int | None = None,
+    settlement_wait: int | None = None,
     verbose: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
@@ -74,6 +75,7 @@ async def run_performance_test(
         config: Performance test configuration
         traders: Optional override for number of traders
         duration: Optional override for test duration (seconds)
+        settlement_wait: Optional override for settlement wait time (seconds, default 300)
         verbose: Enable verbose output
         dry_run: Perform dry run without submitting orders
 
@@ -88,11 +90,13 @@ async def run_performance_test(
     # Use overrides or config defaults
     num_traders = traders if traders is not None else config.default_trader_count
     test_duration = duration if duration is not None else config.default_duration
+    settlement_wait_time = settlement_wait if settlement_wait is not None else 300.0  # Default 5 minutes
 
     if verbose:
         console.print("[bold cyan]Configuration:[/bold cyan]")
         console.print(f"  Traders: {num_traders}")
         console.print(f"  Duration: {test_duration}s")
+        console.print(f"  Settlement wait: {settlement_wait_time}s")
         console.print(f"  Chain ID: {config.network.chain_id}")
         console.print(f"  API URL: {config.api.base_url}")
         console.print()
@@ -182,11 +186,14 @@ async def run_performance_test(
     # Create order factories
     # Set amount range based on wallet funding if enabled, otherwise use conservative defaults
     if config.wallet.funding_enabled:
-        # Use up to 80% of the minimum funded token balance to avoid insufficient balance errors
+        # Use 10-40% of minimum funded token balance to ensure fees are coverable
+        # while avoiding insufficient balance errors
         min_token_balance = (
             min(config.wallet.token_balances.values()) if config.wallet.token_balances else 1.0
         )
-        amount_range = (0.1, min_token_balance * 0.8)
+        # Minimum 20% to ensure sell amount covers gas fees and provides enough trade value
+        # Maximum 60% to use substantial amounts for better settlement viability
+        amount_range = (min_token_balance * 0.2, min_token_balance * 0.6)
     else:
         # Conservative default for unfunded wallets
         amount_range = (0.01, 0.1)
@@ -196,6 +203,25 @@ async def run_performance_test(
         console.print(f"  Amount range: {amount_range[0]} - {amount_range[1]} tokens")
         console.print()
 
+    # Create API client first (needed for quotes in OrderFactory)
+    api_client = None
+    if not dry_run:
+        api_client = OrderbookClient(
+            base_url=config.api.base_url,
+            timeout=config.api.timeout,
+            max_retries=config.api.max_retries,
+        )
+
+        if verbose:
+            console.print(f"[cyan]API Client:[/cyan] {config.api.base_url}")
+            # Check API health
+            is_healthy = await api_client.check_health()
+            if is_healthy:
+                console.print("[green]✓[/green] Orderbook API is healthy")
+            else:
+                console.print("[yellow]⚠[/yellow] Warning: Could not reach orderbook API")
+            console.print()
+
     order_factory = OrderFactory(
         token_pair_registry=token_registry,
         chain_id=config.network.chain_id,
@@ -203,6 +229,7 @@ async def run_performance_test(
         amount_range=amount_range,
         valid_duration=3600,  # 1 hour validity
         fee_percentage=0.0,  # Zero fees (CoW Protocol calculates fees automatically)
+        api_client=api_client,  # Pass API client for getting quotes
     )
 
     # Use a dummy Safe address for conditional orders (will be replaced with actual Safe per trader)
@@ -225,9 +252,13 @@ async def run_performance_test(
     )
 
     # Create order tracker
+    # Set max_poll_attempts based on settlement_wait_time to ensure
+    # monitoring doesn't timeout before settlements can occur
+    poll_interval = 5.0
+    max_poll_attempts = int(settlement_wait_time / poll_interval) + 1
     order_tracker = OrderTracker(
-        poll_interval=5.0,  # Poll every 5 seconds
-        max_poll_attempts=12,  # Up to 60 seconds
+        poll_interval=poll_interval,
+        max_poll_attempts=max_poll_attempts,
     )
 
     # Create trader behavior config from app config
@@ -249,26 +280,8 @@ async def run_performance_test(
         restart_on_failure=True,
         max_restarts_per_trader=3,
         graceful_shutdown_timeout=10.0,
+        settlement_wait_time=float(settlement_wait_time),
     )
-
-    # Create API client (skip in dry run mode)
-    api_client = None
-    if not dry_run:
-        api_client = OrderbookClient(
-            base_url=config.api.base_url,
-            timeout=config.api.timeout,
-            max_retries=config.api.max_retries,
-        )
-
-        if verbose:
-            console.print(f"[cyan]API Client:[/cyan] {config.api.base_url}")
-            # Check API health
-            is_healthy = await api_client.check_health()
-            if is_healthy:
-                console.print("[green]✓[/green] Orderbook API is healthy")
-            else:
-                console.print("[yellow]⚠[/yellow] Warning: Could not reach orderbook API")
-            console.print()
 
     orchestrator = TraderOrchestrator(
         trader_pool=trader_pool,
@@ -370,6 +383,7 @@ def run_command(
     config: PerformanceTestConfig,
     traders: int | None = None,
     duration: int | None = None,
+    settlement_wait: int | None = None,
     output_format: str | None = None,
     save_results: bool = False,
     output_file: str | None = None,
@@ -382,6 +396,7 @@ def run_command(
         config: Performance test configuration
         traders: Optional override for number of traders
         duration: Optional override for test duration (seconds)
+        settlement_wait: Optional override for settlement wait time (seconds)
         output_format: Optional override for output format
         save_results: Whether to save results to file
         output_file: Optional path to save results
@@ -403,6 +418,7 @@ def run_command(
                 config=config,
                 traders=traders,
                 duration=duration,
+                settlement_wait=settlement_wait,
                 verbose=use_verbose,
                 dry_run=dry_run,
             )

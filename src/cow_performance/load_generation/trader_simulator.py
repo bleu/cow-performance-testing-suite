@@ -292,42 +292,55 @@ class TraderSimulator:
         """
         # Generate order using factory (already signed)
         if order_type == "market":
-            signed_order = self.order_factory.create_market_order(
+            signed_order = await self.order_factory.create_market_order(
                 trader_account=self.trader.get_account()
             )
         else:
-            signed_order = self.order_factory.create_limit_order(
+            signed_order = await self.order_factory.create_limit_order(
                 trader_account=self.trader.get_account()
             )
 
-        # Track order creation
-        # Note: In real implementation, order_uid would come from API response
-        order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        self.order_tracker.track_order(
-            order_uid=order_uid,
-            owner=self.trader.address,
-            sell_token=signed_order.sellToken,
-            buy_token=signed_order.buyToken,
-            sell_amount=signed_order.sellAmount,
-            buy_amount=signed_order.buyAmount,
-        )
-
-        # Update status to submitted
-        self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
-
-        # Submit to API
+        # Submit to API and get the real order UID
         if self.api_client is not None:
             try:
-                # Submit order to orderbook API
-                await self.api_client.submit_order(signed_order.model_dump(by_alias=True))
+                # Submit order to orderbook API and get the real UID
+                response = await self.api_client.submit_order(signed_order.model_dump(by_alias=True))
+
+                # The API returns the order UID as a string (or in a dict with "uid" key)
+                if isinstance(response, str):
+                    order_uid = response
+                elif isinstance(response, dict) and "uid" in response:
+                    order_uid = response["uid"]
+                else:
+                    # Fallback: API might return just the UID as a plain string in the response
+                    order_uid = str(response)
+
+                # Track order with the REAL UID from the API
+                self.order_tracker.track_order(
+                    order_uid=order_uid,
+                    owner=self.trader.address,
+                    sell_token=signed_order.sellToken,
+                    buy_token=signed_order.buyToken,
+                    sell_amount=signed_order.sellAmount,
+                    buy_amount=signed_order.buyAmount,
+                )
+
+                # Mark as accepted
                 self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
             except Exception as e:
-                # Mark as failed if submission fails
-                self.order_tracker.update_order_status(order_uid, OrderStatus.FAILED)
-                # Re-raise to let orchestrator handle it
+                # If submission fails, we can't track it (no UID)
                 raise RuntimeError(f"Failed to submit order: {e}") from e
         else:
-            # Mock acceptance in dry-run mode
+            # Dry-run mode: use mock UID
+            order_uid = f"0x{'0' * 56}{int(time.time())}"
+            self.order_tracker.track_order(
+                order_uid=order_uid,
+                owner=self.trader.address,
+                sell_token=signed_order.sellToken,
+                buy_token=signed_order.buyToken,
+                sell_amount=signed_order.sellAmount,
+                buy_amount=signed_order.buyAmount,
+            )
             self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
 
         # Increment trader stats

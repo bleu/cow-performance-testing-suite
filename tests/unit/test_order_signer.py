@@ -51,9 +51,10 @@ class TestOrderSigner:
             valid_duration=3600,
         )
 
-    def test_sign_order_creates_valid_signature(self, order_signer, trader, order_factory):
+    @pytest.mark.asyncio
+    async def test_sign_order_creates_valid_signature(self, order_signer, trader, order_factory):
         """Test that signing creates a valid signature."""
-        order_params = order_factory.create_market_order(trader.get_account())
+        order_params = await order_factory.create_market_order(trader.get_account())
 
         signed_order = order_signer.sign_order(
             order_params,
@@ -67,9 +68,10 @@ class TestOrderSigner:
         assert signed_order.from_ == trader.address
         assert signed_order.signingScheme == SigningScheme.EIP712
 
-    def test_signed_order_contains_all_parameters(self, order_signer, trader, order_factory):
+    @pytest.mark.asyncio
+    async def test_signed_order_contains_all_parameters(self, order_signer, trader, order_factory):
         """Test that signed order contains all original parameters."""
-        order_params = order_factory.create_market_order(trader.get_account())
+        order_params = await order_factory.create_market_order(trader.get_account())
 
         signed_order = order_signer.sign_order(
             order_params,
@@ -86,11 +88,12 @@ class TestOrderSigner:
         assert signed_order.kind == order_params.kind
         assert signed_order.partiallyFillable == order_params.partiallyFillable
 
-    def test_verify_signature_succeeds_for_valid_signature(
+    @pytest.mark.asyncio
+    async def test_verify_signature_succeeds_for_valid_signature(
         self, order_signer, trader, order_factory
     ):
         """Test that signature verification succeeds for valid signature."""
-        order_params = order_factory.create_market_order(trader.get_account())
+        order_params = await order_factory.create_market_order(trader.get_account())
 
         signed_order = order_signer.sign_order(
             order_params,
@@ -100,12 +103,13 @@ class TestOrderSigner:
         is_valid = order_signer.verify_signature(signed_order)
         assert is_valid is True
 
-    def test_verify_signature_fails_for_wrong_signer(self, order_signer, order_factory):
+    @pytest.mark.asyncio
+    async def test_verify_signature_fails_for_wrong_signer(self, order_signer, order_factory):
         """Test that signature verification fails for wrong signer."""
         trader1 = TraderAccount.generate()
         trader2 = TraderAccount.generate()
 
-        order_params = order_factory.create_market_order(trader1.get_account())
+        order_params = await order_factory.create_market_order(trader1.get_account())
 
         # Sign with trader1
         signed_order = order_signer.sign_order(
@@ -120,12 +124,13 @@ class TestOrderSigner:
         is_valid = order_signer.verify_signature(signed_order)
         assert is_valid is False
 
-    def test_different_traders_produce_different_signatures(self, order_signer, order_factory):
+    @pytest.mark.asyncio
+    async def test_different_traders_produce_different_signatures(self, order_signer, order_factory):
         """Test that different traders produce different signatures for same order."""
         trader1 = TraderAccount.generate()
         trader2 = TraderAccount.generate()
 
-        order_params = order_factory.create_market_order(trader1.get_account())
+        order_params = await order_factory.create_market_order(trader1.get_account())
 
         signed_order1 = order_signer.sign_order(
             order_params,
@@ -140,11 +145,12 @@ class TestOrderSigner:
         assert signed_order1.signature != signed_order2.signature
         assert signed_order1.from_ != signed_order2.from_
 
-    def test_same_trader_produces_same_signature_for_same_order(
+    @pytest.mark.asyncio
+    async def test_same_trader_produces_same_signature_for_same_order(
         self, order_signer, trader, order_factory
     ):
         """Test that same trader produces same signature for identical order."""
-        order_params = order_factory.create_market_order(trader.get_account())
+        order_params = await order_factory.create_market_order(trader.get_account())
 
         signed_order1 = order_signer.sign_order(
             order_params,
@@ -159,9 +165,10 @@ class TestOrderSigner:
         # Same order + same trader = same signature
         assert signed_order1.signature == signed_order2.signature
 
-    def test_sign_limit_order(self, order_signer, trader, order_factory):
+    @pytest.mark.asyncio
+    async def test_sign_limit_order(self, order_signer, trader, order_factory):
         """Test signing a limit order."""
-        order_params = order_factory.create_limit_order(trader.get_account())
+        order_params = await order_factory.create_limit_order(trader.get_account())
 
         signed_order = order_signer.sign_order(
             order_params,

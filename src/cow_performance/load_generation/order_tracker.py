@@ -264,8 +264,8 @@ class OrderTracker:
         """
         Poll order status from the API.
 
-        This is a mock implementation that simulates API polling.
-        In a real implementation, this would use aiohttp to call the orderbook API.
+        Fetches the current order status from the orderbook API and maps it
+        to our internal OrderStatus enum.
 
         Args:
             order_uid: The order UID to poll
@@ -274,15 +274,51 @@ class OrderTracker:
         Returns:
             The current order status
         """
-        # Mock implementation - in real use, this would call the API
-        # Example: response = await api_client.get_order(order_uid)
         metadata = self.get_order(order_uid)
         if metadata is None:
             return OrderStatus.FAILED
 
-        # For now, return the current status
-        # Real implementation would fetch from API and update
-        return metadata.current_status
+        # If no API client provided, return current status (dry-run mode)
+        if api_client is None:
+            return metadata.current_status
+
+        try:
+            # Fetch order details from API
+            order_response = await api_client.get_order(order_uid)
+            api_status = order_response.get("status", "unknown").lower()
+
+            # Map API status to our OrderStatus enum
+            # CoW Protocol API statuses: open, fulfilled, cancelled, expired
+            status_map = {
+                "open": OrderStatus.OPEN,
+                "fulfilled": OrderStatus.FILLED,
+                "cancelled": OrderStatus.CANCELLED,
+                "expired": OrderStatus.EXPIRED,
+            }
+
+            new_status = status_map.get(api_status, OrderStatus.OPEN)
+
+            # Extract filled amount if available
+            filled_amount = None
+            if "executedSellAmount" in order_response:
+                executed_sell = str(order_response["executedSellAmount"])
+                if int(executed_sell) > 0:
+                    filled_amount = executed_sell
+
+            # Always update the status (not just when executedSellAmount > 0)
+            self.update_order_status(order_uid, new_status, filled_amount=filled_amount)
+
+            # Log status changes for debugging
+            if new_status == OrderStatus.FILLED and filled_amount:
+                print(f"  ✓ Order {order_uid[:20]}... filled with amount {filled_amount}")
+
+            return new_status
+
+        except Exception as e:
+            # If API call fails (e.g., 404 for unknown order), keep current status
+            # This can happen for very new orders that haven't been indexed yet
+            print(f"  Warning: Failed to poll order {order_uid[:20]}...: {type(e).__name__}: {e}")
+            return metadata.current_status
 
     async def monitor_order(
         self,
@@ -320,14 +356,10 @@ class OrderTracker:
             await asyncio.sleep(self.poll_interval)
             attempts += 1
 
-        # If we hit max attempts, mark as failed
+        # If we hit max attempts, stop monitoring but don't mark as failed
+        # The orchestrator's settlement wait period will continue monitoring
+        # and will determine the final status
         metadata = self.get_order(order_uid)
-        if metadata and not metadata.is_terminal_state():
-            self.update_order_status(
-                order_uid,
-                OrderStatus.FAILED,
-                error_message="Max poll attempts exceeded",
-            )
 
         return metadata or OrderMetadata(
             order_uid=order_uid,
