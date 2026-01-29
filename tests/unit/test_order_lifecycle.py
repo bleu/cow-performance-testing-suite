@@ -263,6 +263,140 @@ class TestOrderTrackerPolling:
         assert metrics.orders_created == 1
 
 
+class TestOrderUIDTracking:
+    """Tests for order UID update functionality."""
+
+    @pytest.fixture
+    def tracker(self):
+        """Create an order tracker fixture."""
+        return OrderTracker(poll_interval=0.1, max_poll_attempts=5)
+
+    @pytest.fixture
+    def tracker_with_store(self):
+        """Create an order tracker with MetricsStore."""
+        store = MetricsStore()
+        tracker = OrderTracker(poll_interval=0.1, max_poll_attempts=5, metrics_store=store)
+        return tracker, store
+
+    def test_update_order_uid_in_tracker(self, tracker):
+        """Test updating order UID in tracker."""
+        old_uid = "pending_123456"
+        new_uid = "0xreal_uid_from_api"
+
+        tracker.track_order(old_uid, owner="0xowner")
+        tracker.update_order_status(old_uid, OrderStatus.SUBMITTED)
+
+        # Update the UID
+        tracker.update_order_uid(old_uid, new_uid)
+
+        # Old UID should no longer exist
+        assert tracker.get_order(old_uid) is None
+
+        # New UID should have the order
+        metadata = tracker.get_order(new_uid)
+        assert metadata is not None
+        assert metadata.order_uid == new_uid
+        assert metadata.owner == "0xowner"
+        assert metadata.current_status == OrderStatus.SUBMITTED
+
+    def test_update_order_uid_preserves_status_history(self, tracker):
+        """Test that UID update preserves status history."""
+        old_uid = "pending_123456"
+        new_uid = "0xreal_uid"
+
+        tracker.track_order(old_uid, owner="0xowner")
+        tracker.update_order_status(old_uid, OrderStatus.SUBMITTED)
+        tracker.update_order_status(old_uid, OrderStatus.ACCEPTED)
+
+        tracker.update_order_uid(old_uid, new_uid)
+
+        metadata = tracker.get_order(new_uid)
+        assert len(metadata.status_history) == 2
+        assert metadata.current_status == OrderStatus.ACCEPTED
+
+    def test_update_order_uid_nonexistent(self, tracker):
+        """Test updating non-existent UID does nothing."""
+        tracker.update_order_uid("nonexistent", "new_uid")
+        # Should not raise, and new_uid shouldn't exist
+        assert tracker.get_order("new_uid") is None
+
+    def test_update_order_uid_syncs_to_metrics_store(self, tracker_with_store):
+        """Test that UID update syncs to MetricsStore."""
+        tracker, store = tracker_with_store
+        old_uid = "pending_123456"
+        new_uid = "0xreal_uid_from_api"
+
+        tracker.track_order(old_uid, owner="0xowner")
+
+        # Verify initial state in store
+        assert store.get_order(old_uid) is not None
+
+        # Update UID
+        tracker.update_order_uid(old_uid, new_uid)
+
+        # Store should have new UID, not old
+        assert store.get_order(old_uid) is None
+        stored_order = store.get_order(new_uid)
+        assert stored_order is not None
+        assert stored_order.order_uid == new_uid
+
+    @pytest.mark.asyncio
+    async def test_monitoring_uses_updated_uid(self, tracker):
+        """Test that monitoring continues with updated UID."""
+        old_uid = "pending_123456"
+        new_uid = "0xreal_uid_from_api"
+
+        tracker.track_order(old_uid, owner="0xowner")
+        tracker.update_order_uid(old_uid, new_uid)
+        tracker.update_order_status(new_uid, OrderStatus.SUBMITTED)
+
+        mock_client = AsyncMock()
+        mock_client.get_order.return_value = {
+            "uid": new_uid,
+            "status": "fulfilled",
+        }
+
+        status = await tracker.poll_order_status(new_uid, mock_client)
+
+        assert status == OrderStatus.FILLED
+        mock_client.get_order.assert_called_once_with(new_uid)
+
+
+class TestMetricsStoreUIDUpdate:
+    """Tests for MetricsStore UID update functionality."""
+
+    def test_update_order_uid_in_store(self):
+        """Test updating order UID in MetricsStore."""
+        from cow_performance.metrics.models import OrderMetadata
+
+        store = MetricsStore()
+        old_uid = "pending_123"
+        new_uid = "0xreal_uid"
+
+        metadata = OrderMetadata(
+            order_uid=old_uid,
+            owner="0xowner",
+            creation_time=1234567890.0,
+        )
+        store.add_order(metadata)
+
+        # Update UID
+        store.update_order_uid(old_uid, new_uid)
+
+        # Old UID gone, new UID present
+        assert store.get_order(old_uid) is None
+        stored = store.get_order(new_uid)
+        assert stored is not None
+        assert stored.order_uid == new_uid
+        assert stored.owner == "0xowner"
+
+    def test_update_order_uid_nonexistent_in_store(self):
+        """Test updating non-existent UID in store does nothing."""
+        store = MetricsStore()
+        store.update_order_uid("nonexistent", "new_uid")
+        assert store.get_order("new_uid") is None
+
+
 class TestOrderTrackerMonitoringTasks:
     """Tests for background monitoring tasks."""
 
