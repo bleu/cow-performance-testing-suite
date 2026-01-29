@@ -252,9 +252,7 @@ class TraderSimulator:
                 if isinstance(response, str):
                     real_uid = response
                 else:
-                    real_uid = (
-                        response.get("uid") or response.get("order_uid") or response
-                    )
+                    real_uid = response.get("uid") or response.get("order_uid") or response
                 # Update tracker with real UID
                 if real_uid and real_uid != temp_uid:
                     self.order_tracker.update_order_uid(temp_uid, real_uid)
