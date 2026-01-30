@@ -18,6 +18,7 @@ from cow_performance.load_generation import (
     OrderFactory,
     OrderSigner,
     OrderTracker,
+    RateLimitConfig,
     TraderBehaviorConfig,
     TraderOrchestrator,
     TradingPattern,
@@ -101,6 +102,39 @@ async def run_performance_test(
         console.print(f"  Settlement wait: {settlement_wait_time}s")
         console.print(f"  Chain ID: {config.network.chain_id}")
         console.print(f"  API URL: {config.api.base_url}")
+        console.print(f"  Trading pattern: {config.trading_pattern}")
+        console.print(f"  Base rate: {config.base_rate} orders/min")
+
+        # Show pattern-specific parameters
+        if config.trading_pattern in ("ramp_up", "ramp_down"):
+            console.print(
+                f"  Ramp: {config.ramp_start_rate} → {config.ramp_target_rate} orders/min over {config.ramp_duration}s ({config.ramp_curve})"
+            )
+        elif config.trading_pattern == "spike":
+            console.print(
+                f"  Spike: {config.spike_normal_rate} → {config.spike_burst_rate} orders/min for {config.spike_duration}s"
+            )
+        elif config.trading_pattern == "poisson":
+            console.print(f"  Poisson lambda: {config.poisson_lambda} events/min")
+
+        # Show rate limiting if enabled
+        if config.enable_global_rate_limit:
+            if config.max_orders_global_per_second:
+                limit = config.max_orders_global_per_second
+            elif config.max_orders_global_per_minute:
+                limit = config.max_orders_global_per_minute / 60.0
+            else:
+                limit = 0.0
+            console.print(f"  Global rate limit: {limit:.1f} orders/sec")
+        if config.enable_per_trader_rate_limit:
+            if config.max_orders_per_trader_per_second:
+                limit = config.max_orders_per_trader_per_second
+            elif config.max_orders_per_trader_per_minute:
+                limit = config.max_orders_per_trader_per_minute / 60.0
+            else:
+                limit = 0.0
+            console.print(f"  Per-trader rate limit: {limit:.1f} orders/sec")
+
         console.print()
 
     if dry_run:
@@ -265,13 +299,46 @@ async def run_performance_test(
 
     # Create trader behavior config from app config
     behavior_config = TraderBehaviorConfig(
-        pattern=TradingPattern.CONSTANT_RATE,
-        base_rate=60.0,  # 60 orders per minute (1 per second)
+        pattern=TradingPattern(config.trading_pattern),
+        base_rate=config.base_rate,
         market_order_ratio=config.market_order_ratio,
         limit_order_ratio=config.limit_order_ratio,
         twap_order_ratio=config.twap_order_ratio,
         stop_loss_order_ratio=config.stop_loss_order_ratio,
         good_after_time_order_ratio=config.good_after_time_order_ratio,
+        # Random interval parameters
+        min_interval=config.min_interval,
+        max_interval=config.max_interval,
+        # Burst pattern parameters
+        burst_size=config.burst_size,
+        burst_interval=config.burst_interval,
+        quiet_period=config.quiet_period,
+        # Time-based parameters
+        active_hours=config.active_hours,
+        active_multiplier=config.active_multiplier,
+        # Ramp parameters
+        ramp_start_rate=config.ramp_start_rate,
+        ramp_target_rate=config.ramp_target_rate,
+        ramp_duration=config.ramp_duration,
+        ramp_curve=config.ramp_curve,
+        # Spike parameters
+        spike_normal_rate=config.spike_normal_rate,
+        spike_burst_rate=config.spike_burst_rate,
+        spike_duration=config.spike_duration,
+        spike_recovery_time=config.spike_recovery_time,
+        # Poisson parameters
+        poisson_lambda=config.poisson_lambda,
+    )
+
+    # Create rate limit config from app config
+    rate_limit_config = RateLimitConfig(
+        enable_per_trader_limit=config.enable_per_trader_rate_limit,
+        max_orders_per_trader_per_second=config.max_orders_per_trader_per_second,
+        max_orders_per_trader_per_minute=config.max_orders_per_trader_per_minute,
+        enable_global_limit=config.enable_global_rate_limit,
+        max_orders_global_per_second=config.max_orders_global_per_second,
+        max_orders_global_per_minute=config.max_orders_global_per_minute,
+        burst_allowance=config.rate_limit_burst_allowance,
     )
 
     # Create orchestration config
@@ -296,6 +363,7 @@ async def run_performance_test(
         orchestration_config=orchestration_config,
         api_client=api_client,
         order_cleanup_config=config.order_cleanup,
+        rate_limit_config=rate_limit_config,
     )
 
     # Set up graceful shutdown handler
@@ -344,6 +412,10 @@ async def run_performance_test(
         "chain_id": config.network.chain_id,
         "api_url": config.api.base_url,
         "dry_run": dry_run,
+        "trading_pattern": config.trading_pattern,
+        "base_rate": config.base_rate,
+        "global_rate_limit_enabled": config.enable_global_rate_limit,
+        "per_trader_rate_limit_enabled": config.enable_per_trader_rate_limit,
     }
 
     # Update orchestration metrics with actual config values

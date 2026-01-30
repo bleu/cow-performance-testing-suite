@@ -201,12 +201,177 @@ class PerformanceTestConfig(BaseSettings):
         description="Default interval between trader startups",
     )
 
+    # Trading pattern configuration
+    trading_pattern: str = Field(
+        default="constant_rate",
+        description="Trading pattern: constant_rate, random_interval, burst, time_based, ramp_up, ramp_down, spike, poisson",
+    )
+    base_rate: float = Field(
+        default=60.0,
+        gt=0.0,
+        description="Base order submission rate (orders per minute)",
+    )
+
+    # Random interval pattern parameters
+    min_interval: float = Field(
+        default=5.0,
+        gt=0.0,
+        description="Minimum interval between orders (seconds, for random_interval pattern)",
+    )
+    max_interval: float = Field(
+        default=30.0,
+        gt=0.0,
+        description="Maximum interval between orders (seconds, for random_interval pattern)",
+    )
+
+    # Burst pattern parameters
+    burst_size: int = Field(
+        default=5,
+        ge=1,
+        description="Number of orders per burst (for burst pattern)",
+    )
+    burst_interval: float = Field(
+        default=2.0,
+        gt=0.0,
+        description="Seconds between orders in burst (for burst pattern)",
+    )
+    quiet_period: float = Field(
+        default=60.0,
+        gt=0.0,
+        description="Seconds between bursts (for burst pattern)",
+    )
+
+    # Time-based pattern parameters
+    active_hours: list[int] | None = Field(
+        default=None,
+        description="Hours when more active (0-23, for time_based pattern)",
+    )
+    active_multiplier: float = Field(
+        default=2.0,
+        gt=0.0,
+        description="Rate multiplier during active hours (for time_based pattern)",
+    )
+
+    # Ramp pattern parameters
+    ramp_start_rate: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Starting rate for ramp pattern (orders per minute)",
+    )
+    ramp_target_rate: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Target rate for ramp pattern (orders per minute)",
+    )
+    ramp_duration: float = Field(
+        default=300.0,
+        gt=0.0,
+        description="Duration of ramp in seconds (for ramp_up/ramp_down patterns)",
+    )
+    ramp_curve: str = Field(
+        default="linear",
+        description="Ramp curve type: linear or exponential (for ramp_up/ramp_down patterns)",
+    )
+
+    # Spike pattern parameters
+    spike_normal_rate: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Normal rate for spike pattern (orders per minute)",
+    )
+    spike_burst_rate: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Burst rate for spike pattern (orders per minute)",
+    )
+    spike_duration: float = Field(
+        default=30.0,
+        gt=0.0,
+        description="Duration of spike in seconds (for spike pattern)",
+    )
+    spike_recovery_time: float = Field(
+        default=60.0,
+        gt=0.0,
+        description="Time between spikes in seconds (for spike pattern)",
+    )
+
+    # Poisson pattern parameters
+    poisson_lambda: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Lambda parameter for Poisson distribution (events per minute)",
+    )
+
+    # Rate limiting configuration
+    enable_global_rate_limit: bool = Field(
+        default=False,
+        description="Enable global rate limiting across all traders",
+    )
+    max_orders_global_per_second: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Maximum orders per second globally",
+    )
+    max_orders_global_per_minute: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Maximum orders per minute globally",
+    )
+
+    enable_per_trader_rate_limit: bool = Field(
+        default=False,
+        description="Enable per-trader rate limiting",
+    )
+    max_orders_per_trader_per_second: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Maximum orders per second per trader",
+    )
+    max_orders_per_trader_per_minute: float | None = Field(
+        default=None,
+        gt=0.0,
+        description="Maximum orders per minute per trader",
+    )
+
+    rate_limit_burst_allowance: float = Field(
+        default=1.5,
+        gt=0.0,
+        description="Burst allowance multiplier for rate limiting (e.g., 1.5 = 50% burst)",
+    )
+
     # Order type ratios (defaults that sum to 1.0)
     market_order_ratio: float = Field(default=0.4, ge=0.0, le=1.0)
     limit_order_ratio: float = Field(default=0.4, ge=0.0, le=1.0)
     twap_order_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     stop_loss_order_ratio: float = Field(default=0.05, ge=0.0, le=1.0)
     good_after_time_order_ratio: float = Field(default=0.05, ge=0.0, le=1.0)
+
+    @field_validator("trading_pattern")
+    @classmethod
+    def validate_trading_pattern(cls, v: str) -> str:
+        """Validate trading pattern."""
+        allowed = [
+            "constant_rate",
+            "random_interval",
+            "burst",
+            "time_based",
+            "ramp_up",
+            "ramp_down",
+            "spike",
+            "poisson",
+        ]
+        if v not in allowed:
+            raise ValueError(f"Trading pattern must be one of: {', '.join(allowed)}")
+        return v
+
+    @field_validator("ramp_curve")
+    @classmethod
+    def validate_ramp_curve(cls, v: str) -> str:
+        """Validate ramp curve type."""
+        allowed = ["linear", "exponential"]
+        if v not in allowed:
+            raise ValueError(f"Ramp curve must be one of: {', '.join(allowed)}")
+        return v
 
     @field_validator(
         "market_order_ratio",
@@ -372,6 +537,58 @@ wallet:
 default_trader_count: 10
 default_duration: 60
 default_startup_interval: 0.1
+
+# Trading pattern configuration
+# Available patterns: constant_rate, random_interval, burst, time_based,
+#                     ramp_up, ramp_down, spike, poisson
+trading_pattern: "constant_rate"
+base_rate: 60.0  # Orders per minute
+
+# Random interval pattern (for trading_pattern: random_interval)
+min_interval: 5.0   # Minimum seconds between orders
+max_interval: 30.0  # Maximum seconds between orders
+
+# Burst pattern (for trading_pattern: burst)
+burst_size: 5           # Orders per burst
+burst_interval: 2.0     # Seconds between orders in burst
+quiet_period: 60.0      # Seconds between bursts
+
+# Time-based pattern (for trading_pattern: time_based)
+# active_hours: [9, 10, 11, 12, 13, 14, 15, 16]  # Active during business hours
+active_multiplier: 2.0  # Rate multiplier during active hours
+
+# Ramp patterns (for trading_pattern: ramp_up or ramp_down)
+# Gradually increase (ramp_up) or decrease (ramp_down) submission rate
+# Example: Start at 6 orders/min, ramp up to 60 orders/min over 5 minutes
+# ramp_start_rate: 6.0      # Orders per minute at start
+# ramp_target_rate: 60.0    # Orders per minute at end
+# ramp_duration: 300.0      # Duration in seconds (300s = 5 min)
+# ramp_curve: "linear"      # "linear" or "exponential"
+
+# Spike pattern (for trading_pattern: spike)
+# Sudden bursts of activity followed by recovery periods
+# Example: Normal 10 orders/min, spike to 100 orders/min for 30s, recover for 60s
+# spike_normal_rate: 10.0   # Normal orders per minute
+# spike_burst_rate: 100.0   # Burst orders per minute
+# spike_duration: 30.0      # Duration of spike in seconds
+# spike_recovery_time: 60.0 # Time between spikes in seconds
+
+# Poisson pattern (for trading_pattern: poisson)
+# Statistically realistic random intervals following Poisson distribution
+# Example: Average 30 orders per minute with natural variation
+# poisson_lambda: 30.0      # Events per minute (rate parameter)
+
+# Rate limiting configuration
+# Helps avoid API rate limits and simulate realistic load
+enable_global_rate_limit: false
+# max_orders_global_per_second: 10.0     # Global limit across all traders
+# max_orders_global_per_minute: 600.0    # Alternative: per-minute limit
+
+enable_per_trader_rate_limit: false
+# max_orders_per_trader_per_second: 2.0  # Per-trader limit
+# max_orders_per_trader_per_minute: 120.0 # Alternative: per-minute limit
+
+rate_limit_burst_allowance: 1.5  # Allow bursts up to 1.5x sustained rate
 
 # Order type ratios (must sum to 1.0)
 market_order_ratio: 0.4

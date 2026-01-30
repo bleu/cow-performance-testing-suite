@@ -85,6 +85,8 @@ from .token_pair import (
 from .trader_account import TraderAccount, TraderPool
 from .trader_orchestrator import (
     OrchestrationConfig,
+    RateLimitConfig,
+    RateLimiter,
     TraderOrchestrator,
     run_load_test,
 )
@@ -172,6 +174,8 @@ __all__ = [
     "TraderBehaviorConfig",
     "TraderSimulator",
     "OrchestrationConfig",
+    "RateLimitConfig",
+    "RateLimiter",
     "TraderOrchestrator",
     "run_load_test",
 ]
