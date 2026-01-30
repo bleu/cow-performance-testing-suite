@@ -6,6 +6,7 @@ before submission to the orderbook API.
 """
 
 import time
+from typing import Any
 
 from web3 import Web3
 
@@ -109,6 +110,30 @@ def validate_app_data(app_data: str) -> None:
         int(app_data, 16)
     except ValueError as e:
         raise OrderValidationError(f"appData must be valid hex: {app_data}") from e
+
+
+def validate_app_data_hash(app_data_doc: dict[str, Any], expected_hash: str) -> None:
+    """Validate that appData document hashes to expected value.
+
+    Args:
+        app_data_doc: Full appData JSON document
+        expected_hash: Expected keccak256 hash (with 0x prefix)
+
+    Raises:
+        OrderValidationError: If hash doesn't match
+    """
+    import json
+
+    from web3 import Web3
+
+    # Compute hash with consistent serialization
+    app_data_json = json.dumps(app_data_doc, separators=(",", ":"), sort_keys=True)
+    computed_hash = Web3.keccak(text=app_data_json).hex()
+
+    if computed_hash != expected_hash:
+        raise OrderValidationError(
+            f"AppData hash mismatch: expected {expected_hash}, got {computed_hash}"
+        )
 
 
 def validate_order_parameters(params: OrderParameters) -> list[str]:

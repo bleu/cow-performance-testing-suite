@@ -243,9 +243,10 @@ class TestOrderTracker:
         # Don't update status, should timeout after max_poll_attempts
         metadata = await order_tracker.monitor_order(order_uid)
 
-        # Should be marked as failed due to timeout
-        assert metadata.current_status == OrderStatus.FAILED
-        assert metadata.error_message == "Max poll attempts exceeded"
+        # Should remain in CREATED status (not marked as FAILED)
+        # The orchestrator's settlement wait will continue monitoring
+        assert metadata.current_status == OrderStatus.CREATED
+        assert metadata.error_message is None
 
     @pytest.mark.asyncio
     async def test_start_monitoring_in_background(self, order_tracker):

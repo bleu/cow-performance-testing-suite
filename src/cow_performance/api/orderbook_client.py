@@ -80,6 +80,60 @@ class OrderbookClient:
                 result: dict[str, Any] = await response.json()
                 return result
 
+    async def get_quote(
+        self,
+        sell_token: str,
+        buy_token: str,
+        sell_amount: str,
+        from_address: str,
+        kind: str = "sell",
+        app_data: str | None = None,
+    ) -> dict[str, Any]:
+        """Get a quote for an order with realistic pricing and surplus.
+
+        The quote includes market price with slippage/surplus to ensure
+        orders are profitable for solvers.
+
+        Args:
+            sell_token: Address of token to sell
+            buy_token: Address of token to buy
+            sell_amount: Amount to sell in wei (as string)
+            from_address: Trader address
+            kind: Order kind ("sell" or "buy")
+            app_data: Optional appData hash to include in quote request
+
+        Returns:
+            Quote response with buyAmount, feeAmount, etc.
+
+        Raises:
+            aiohttp.ClientError: If request fails
+        """
+        quote_request = {
+            "sellToken": sell_token,
+            "buyToken": buy_token,
+            "sellAmountBeforeFee": sell_amount,
+            "from": from_address,
+            "kind": kind,
+            "priceQuality": "optimal",  # Get best available price
+        }
+
+        # Include appData if provided - ensures quote matches order parameters
+        if app_data:
+            quote_request["appData"] = app_data
+
+        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            async with session.post(
+                f"{self.base_url}/api/v1/quote",
+                json=quote_request,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise aiohttp.ClientError(
+                        f"Quote request failed: {response.status}, message='{error_text}'"
+                    )
+                result: dict[str, Any] = await response.json()
+                return result
+
     async def get_trades(self, order_uid: str) -> list[dict[str, Any]]:
         """Get trades for an order.
 
@@ -128,7 +182,10 @@ class OrderbookClient:
         hash_without_prefix = app_data_hash[2:] if app_data_hash.startswith("0x") else app_data_hash
 
         # The API expects the appData wrapped in a "fullAppData" field
-        request_body = {"fullAppData": json.dumps(app_data_doc)}
+        # IMPORTANT: Use consistent serialization to match hash computation
+        request_body = {
+            "fullAppData": json.dumps(app_data_doc, separators=(",", ":"), sort_keys=True)
+        }
 
         async with aiohttp.ClientSession(timeout=self.timeout) as session:
             async with session.put(
@@ -181,3 +238,133 @@ class OrderbookClient:
             return True
         except Exception:
             return False
+
+    async def cancel_orders(
+        self,
+        order_uids: list[str],
+        signature: str,
+        signing_scheme: str = "eip712",
+    ) -> dict[str, Any]:
+        """Cancel multiple orders in a single request (batch cancellation).
+
+        Args:
+            order_uids: List of order UIDs to cancel
+            signature: EIP-712 signature of OrderCancellations message
+            signing_scheme: Signing scheme (default: "eip712")
+
+        Returns:
+            Response from orderbook
+
+        Raises:
+            aiohttp.ClientResponseError: If cancellation fails
+        """
+        request_body = {
+            "orderUids": order_uids,
+            "signature": signature,
+            "signingScheme": signing_scheme,
+        }
+
+        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            async with session.delete(
+                f"{self.base_url}/api/v1/orders",
+                json=request_body,
+            ) as response:
+                if not response.ok:
+                    error_text = await response.text()
+                    raise aiohttp.ClientResponseError(
+                        request_info=response.request_info,
+                        history=response.history,
+                        status=response.status,
+                        message=f"Order cancellation failed: {error_text}",
+                        headers=response.headers,
+                    )
+                result: dict[str, Any] = await response.json()
+                return result
+
+    async def get_account_orders(
+        self,
+        owner: str,
+        offset: int = 0,
+        limit: int = 1000,
+    ) -> list[dict[str, Any]]:
+        """Get orders for an account with pagination.
+
+        Args:
+            owner: Ethereum address of order owner
+            offset: Pagination offset (default: 0)
+            limit: Max orders to return (default: 1000, max: 1000)
+
+        Returns:
+            List of orders for the account
+
+        Raises:
+            aiohttp.ClientResponseError: If request fails
+        """
+        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            async with session.get(
+                f"{self.base_url}/api/v1/account/{owner}/orders",
+                params={"offset": offset, "limit": limit},
+            ) as response:
+                response.raise_for_status()
+                result: list[dict[str, Any]] = await response.json()
+                return result
+
+    async def get_open_order_count(self, owner: str) -> int:
+        """Get count of open orders for an account.
+
+        Args:
+            owner: Ethereum address of order owner
+
+        Returns:
+            Number of open orders
+        """
+        orders = await self.get_account_orders(owner, limit=1000)
+        open_orders = [o for o in orders if o.get("status") == "open"]
+        return len(open_orders)
+
+    async def upload_app_data_with_retry(
+        self,
+        app_data_hash: str,
+        app_data_doc: str | dict[str, Any],
+        max_retries: int = 3,
+    ) -> dict[str, Any]:
+        """Upload appData with automatic retry on failure.
+
+        Args:
+            app_data_hash: 32-byte hash of appData document
+            app_data_doc: Full appData JSON document
+            max_retries: Maximum retry attempts
+
+        Returns:
+            Response from orderbook
+
+        Raises:
+            aiohttp.ClientResponseError: If all retries fail
+        """
+        import asyncio
+
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                return await self.upload_app_data(app_data_hash, app_data_doc)
+            except aiohttp.ClientResponseError as e:
+                last_error = e
+                # Only retry on transient errors (5xx) or 409 Conflict (already exists)
+                if e.status == 409:
+                    # AppData already exists, this is OK
+                    return {}
+                if e.status not in (500, 502, 503, 504):
+                    raise
+
+                if attempt < max_retries - 1:
+                    wait_time = 2**attempt  # Exponential backoff
+                    print(
+                        f"AppData upload failed (attempt {attempt + 1}), "
+                        f"retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+
+        if last_error:
+            raise last_error
+        return {}

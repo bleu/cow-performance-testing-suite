@@ -140,7 +140,8 @@ class TestOrderTemplateRegistry:
         registry = OrderTemplateRegistry()
         assert registry.get("nonexistent") is None
 
-    def test_create_order_from_template(self) -> None:
+    @pytest.mark.asyncio
+    async def test_create_order_from_template(self) -> None:
         """Test creating order from template."""
         registry = OrderTemplateRegistry()
         template = OrderTemplate(
@@ -159,7 +160,7 @@ class TestOrderTemplateRegistry:
         )
         trader = Account.create()
 
-        order = registry.create_order_from_template(
+        order = await registry.create_order_from_template(
             template_name="test_market",
             factory=factory,
             trader_account=trader,
@@ -168,7 +169,8 @@ class TestOrderTemplateRegistry:
         assert order.from_ == trader.address
         assert order.kind == OrderKind.SELL
 
-    def test_create_order_with_overrides(self) -> None:
+    @pytest.mark.asyncio
+    async def test_create_order_with_overrides(self) -> None:
         """Test creating order with parameter overrides."""
         registry = OrderTemplateRegistry()
         template = OrderTemplate(
@@ -187,7 +189,7 @@ class TestOrderTemplateRegistry:
         )
         trader = Account.create()
 
-        order = registry.create_order_from_template(
+        order = await registry.create_order_from_template(
             template_name="test",
             factory=factory,
             trader_account=trader,
@@ -196,7 +198,8 @@ class TestOrderTemplateRegistry:
 
         assert order.kind == OrderKind.BUY
 
-    def test_create_order_template_not_found(self) -> None:
+    @pytest.mark.asyncio
+    async def test_create_order_template_not_found(self) -> None:
         """Test creating order with non-existent template."""
         registry = OrderTemplateRegistry()
         token_registry = create_mainnet_token_registry()
@@ -208,7 +211,7 @@ class TestOrderTemplateRegistry:
         trader = Account.create()
 
         with pytest.raises(ValueError, match="Template not found"):
-            registry.create_order_from_template(
+            await registry.create_order_from_template(
                 template_name="nonexistent",
                 factory=factory,
                 trader_account=trader,
@@ -245,7 +248,8 @@ class TestDefaultTemplates:
         assert limit.order_type == "limit"
         assert limit.limit_price == Decimal("0.99")
 
-    def test_use_default_template(self) -> None:
+    @pytest.mark.asyncio
+    async def test_use_default_template(self) -> None:
         """Test using a default template to create order."""
         registry = create_default_templates()
         token_registry = create_mainnet_token_registry()
@@ -256,7 +260,7 @@ class TestDefaultTemplates:
         )
         trader = Account.create()
 
-        order = registry.create_order_from_template(
+        order = await registry.create_order_from_template(
             template_name="small_market",
             factory=factory,
             trader_account=trader,
