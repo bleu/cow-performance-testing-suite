@@ -55,7 +55,7 @@ Comprehensive performance testing suite for the CoW Protocol Playground, enablin
 
 5. **Run your first test**
    ```bash
-   cow-perf run --config configs/scenarios/test-funded-scenario.yml
+   cow-perf run --config configs/scenarios/light-load.yml
    ```
 
 For detailed setup and troubleshooting, see [Development Guide](docs/development.md).
@@ -102,8 +102,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## Roadmap
 
 - [x] **Milestone 1**: Project Setup & Load Generation Framework
-- [x] **Milestone 2**: User Simulation Module (TraderPool, Safe wallets, hooks)
-- [x] **Milestone 3**: CLI Tool Interface
+- [ ] **Milestone 2**: User Simulation Module (TraderPool, Safe wallets, hooks)
+- [ ] **Milestone 3**: CLI Tool Interface
 - [ ] **Milestone 4**: Performance Benchmarking & Metrics
 - [ ] **Milestone 5**: Advanced Features & Documentation
 
