@@ -12,6 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from web3 import Web3
 
 from cow_performance.api import InstrumentedOrderbookClient
+from cow_performance.cli.live_display import create_performance_metrics_dict
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
     OrchestrationConfig,
@@ -385,12 +386,10 @@ async def run_performance_test(
         "total_traders": num_traders,
     }
 
-    # Add performance metrics
+    # Add performance metrics with percentiles from aggregator
     elapsed = metrics["orchestration"]["elapsed_time"]
-    metrics["performance"]["orders_per_second"] = total_orders / elapsed if elapsed > 0 else 0.0
-    metrics["performance"]["avg_order_latency_ms"] = (
-        (elapsed * 1000 / total_orders) if total_orders > 0 else 0.0
-    )
+    perf_metrics = create_performance_metrics_dict(metrics_store, elapsed)
+    metrics["performance"] = perf_metrics
 
     # Add metrics store summary (API metrics, resource metrics)
     metrics["metrics_store"] = metrics_store.summary()

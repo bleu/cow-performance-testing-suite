@@ -111,6 +111,23 @@ class OrderTracker:
         """
         return list(self._orders.values())
 
+    def update_order_uid(self, old_uid: str, new_uid: str) -> None:
+        """
+        Replace a temporary UID with the real UID from API response.
+
+        Args:
+            old_uid: The temporary/pending UID
+            new_uid: The real UID from the orderbook API
+        """
+        if old_uid in self._orders:
+            order = self._orders.pop(old_uid)
+            order.order_uid = new_uid
+            self._orders[new_uid] = order
+
+            # Also update in metrics store if present
+            if self._metrics_store:
+                self._metrics_store.update_order_uid(old_uid, new_uid)
+
     def update_order_status(
         self,
         order_uid: str,
