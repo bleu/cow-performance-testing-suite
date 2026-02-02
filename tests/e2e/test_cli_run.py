@@ -21,7 +21,7 @@ class TestCLIRun:
     @pytest.mark.e2e
     def test_cli_run_dry_run_mode(self) -> None:
         """Test CLI run command in dry-run mode (no API submission)."""
-        # Run with minimal parameters in dry-run mode
+        # Run with minimal parameters in dry-run mode (no API submission)
         result = subprocess.run(
             [
                 ".venv/bin/cow-perf",
@@ -30,8 +30,9 @@ class TestCLIRun:
                 "2",
                 "--duration",
                 "3",
+                "--dry-run",
                 "--verbose",
-                "--output",
+                "--format",
                 "json",
             ],
             capture_output=True,
@@ -42,16 +43,26 @@ class TestCLIRun:
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
 
-        # Parse output to find JSON results
-        output_lines = result.stdout.split("\n")
+        # Parse output to find JSON results (may be multi-line or have Rich/ANSI prefix)
         json_output = None
-        for line in output_lines:
-            if line.strip().startswith("{"):
+        stdout = result.stdout
+        start = stdout.find("{")
+        if start != -1:
+            depth = 0
+            end = -1
+            for i in range(start, len(stdout)):
+                if stdout[i] == "{":
+                    depth += 1
+                elif stdout[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+            if end != -1:
                 try:
-                    json_output = json.loads(line)
-                    break
+                    json_output = json.loads(stdout[start:end])
                 except json.JSONDecodeError:
-                    continue
+                    pass
 
         # Verify we got metrics
         assert json_output is not None, "No JSON output found"
@@ -108,7 +119,7 @@ good_after_time_order_ratio: 0.0
                     "run",
                     "--config",
                     config_path,
-                    "--output",
+                    "--format",
                     "json",
                 ],
                 capture_output=True,
@@ -132,7 +143,7 @@ good_after_time_order_ratio: 0.0
         with tempfile.TemporaryDirectory() as tmpdir:
             results_file = Path(tmpdir) / "results.json"
 
-            # Run and save results
+            # Run and save results (--output = file path, --format = display/save format)
             result = subprocess.run(
                 [
                     ".venv/bin/cow-perf",
@@ -141,9 +152,9 @@ good_after_time_order_ratio: 0.0
                     "2",
                     "--duration",
                     "3",
-                    "--output",
+                    "--format",
                     "json",
-                    "--output-file",
+                    "--output",
                     str(results_file),
                 ],
                 capture_output=True,
@@ -175,7 +186,7 @@ good_after_time_order_ratio: 0.0
                 "2",
                 "--duration",
                 "3",
-                "--output",
+                "--format",
                 "table",
             ],
             capture_output=True,
@@ -238,7 +249,7 @@ good_after_time_order_ratio: 0.0
                     "--config",
                     config_path,
                     "--verbose",
-                    "--output",
+                    "--format",
                     "json",
                 ],
                 capture_output=True,

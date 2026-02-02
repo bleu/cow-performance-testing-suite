@@ -226,11 +226,10 @@ class TraderSimulator:
                 trader_account=self.trader.get_account()
             )
 
-        # Track order creation
-        # Note: In real implementation, order_uid would come from API response
-        order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
+        # Track order with temporary UID first (for pre-submission tracking)
+        temp_uid = f"pending_{int(time.time() * 1000)}"
         self.order_tracker.track_order(
-            order_uid=order_uid,
+            order_uid=temp_uid,
             owner=self.trader.address,
             sell_token=signed_order.sellToken,
             buy_token=signed_order.buyToken,
@@ -239,17 +238,29 @@ class TraderSimulator:
         )
 
         # Update status to submitted
-        self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.SUBMITTED)
 
         # Submit to API
+        order_uid = temp_uid  # Default to temp UID for dry-run mode
         if self.api_client is not None:
             try:
-                # Submit order to orderbook API
-                await self.api_client.submit_order(signed_order.model_dump(by_alias=True))
+                # Submit order to orderbook API and get real UID from response
+                response = await self.api_client.submit_order(
+                    signed_order.model_dump(by_alias=True)
+                )
+                # Extract real UID from response (API returns UID as string directly or in dict)
+                if isinstance(response, str):
+                    real_uid = response
+                else:
+                    real_uid = response.get("uid") or response.get("order_uid") or response
+                # Update tracker with real UID
+                if real_uid and real_uid != temp_uid:
+                    self.order_tracker.update_order_uid(temp_uid, real_uid)
+                    order_uid = real_uid
                 self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
             except Exception as e:
                 # Mark as failed if submission fails
-                self.order_tracker.update_order_status(order_uid, OrderStatus.FAILED)
+                self.order_tracker.update_order_status(temp_uid, OrderStatus.FAILED)
                 # Re-raise to let orchestrator handle it
                 raise RuntimeError(f"Failed to submit order: {e}") from e
         else:
@@ -259,19 +270,31 @@ class TraderSimulator:
         # Increment trader stats
         self.trader.increment_orders_submitted()
 
-        # Start monitoring in background
+        # Start monitoring in background with real UID
         self.order_tracker.start_monitoring(order_uid, self.api_client)
 
     async def _submit_twap_order(self) -> None:
-        """Generate and submit a TWAP order."""
+        """Generate and submit a TWAP order.
+
+        Note: TWAP orders use on-chain submission via ComposableCow contract,
+        not the orderbook API. The UID for conditional orders would come from
+        the transaction receipt or events. Currently using temp UID for tracking.
+
+        TODO: Implement full conditional order lifecycle tracking:
+        1. Actually submit via composable_cow.submit_conditional_order()
+        2. Get order UID from transaction receipt or ConditionalOrderCreated event
+        3. Track token amounts from the generated ConditionalOrder
+        4. Implement on-chain event watching for order fills (not API polling)
+        5. For TWAP: track individual part executions over time
+        See: src/cow_performance/load_generation/composable_cow.py
+        """
         # Generate TWAP order (returns ConditionalOrder with embedded TWAP params)
         self.conditional_order_factory.create_twap_order()
 
-        # Track order (mock - in reality would track after submission)
-        order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
-        # Note: For TWAP, we track the total amounts
+        # Track with temporary UID (conditional orders don't have API-generated UIDs)
+        temp_uid = f"twap_pending_{int(time.time() * 1000)}"
         self.order_tracker.track_order(
-            order_uid=order_uid,
+            order_uid=temp_uid,
             owner=self.trader.address,
             sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
@@ -280,24 +303,36 @@ class TraderSimulator:
         )
 
         # Update status
-        self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.SUBMITTED)
 
-        # Submit (mock)
-        if self.api_client is None:
-            self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
+        # Mark as accepted (conditional orders don't go through orderbook API)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.ACCEPTED)
 
         self.trader.increment_orders_submitted()
-        self.order_tracker.start_monitoring(order_uid, self.api_client)
+        # Don't start API monitoring - conditional orders don't exist in orderbook API
 
     async def _submit_stop_loss_order(self) -> None:
-        """Generate and submit a stop-loss order."""
+        """Generate and submit a stop-loss order.
+
+        Note: Stop-loss orders use on-chain submission via ComposableCow contract,
+        not the orderbook API. The UID for conditional orders would come from
+        the transaction receipt or events. Currently using temp UID for tracking.
+
+        TODO: Implement full conditional order lifecycle tracking:
+        1. Actually submit via composable_cow.submit_conditional_order()
+        2. Get order UID from transaction receipt or ConditionalOrderCreated event
+        3. Track token amounts from the generated ConditionalOrder
+        4. Implement on-chain event watching for order fills (not API polling)
+        5. For Stop-Loss: monitor price oracle to detect trigger conditions
+        See: src/cow_performance/load_generation/composable_cow.py
+        """
         # Generate stop-loss order (returns ConditionalOrder with embedded params)
         self.conditional_order_factory.create_stop_loss_order()
 
-        # Track order (mock - in reality would track after submission)
-        order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
+        # Track with temporary UID (conditional orders don't have API-generated UIDs)
+        temp_uid = f"stoploss_pending_{int(time.time() * 1000)}"
         self.order_tracker.track_order(
-            order_uid=order_uid,
+            order_uid=temp_uid,
             owner=self.trader.address,
             sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
@@ -306,24 +341,36 @@ class TraderSimulator:
         )
 
         # Update status
-        self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.SUBMITTED)
 
-        # Submit (mock)
-        if self.api_client is None:
-            self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
+        # Mark as accepted (conditional orders don't go through orderbook API)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.ACCEPTED)
 
         self.trader.increment_orders_submitted()
-        self.order_tracker.start_monitoring(order_uid, self.api_client)
+        # Don't start API monitoring - conditional orders don't exist in orderbook API
 
     async def _submit_good_after_time_order(self) -> None:
-        """Generate and submit a good-after-time order."""
+        """Generate and submit a good-after-time order.
+
+        Note: Good-after-time orders use on-chain submission via ComposableCow
+        contract, not the orderbook API. The UID for conditional orders would
+        come from the transaction receipt or events. Currently using temp UID.
+
+        TODO: Implement full conditional order lifecycle tracking:
+        1. Actually submit via composable_cow.submit_conditional_order()
+        2. Get order UID from transaction receipt or ConditionalOrderCreated event
+        3. Track token amounts from the generated ConditionalOrder
+        4. Implement on-chain event watching for order fills (not API polling)
+        5. For GAT: monitor block timestamps to detect when order becomes active
+        See: src/cow_performance/load_generation/composable_cow.py
+        """
         # Generate good-after-time order (returns ConditionalOrder with embedded params)
         self.conditional_order_factory.create_good_after_time_order()
 
-        # Track order (mock - in reality would track after submission)
-        order_uid = f"0x{'0' * 56}{int(time.time())}"  # Mock UID
+        # Track with temporary UID (conditional orders don't have API-generated UIDs)
+        temp_uid = f"gat_pending_{int(time.time() * 1000)}"
         self.order_tracker.track_order(
-            order_uid=order_uid,
+            order_uid=temp_uid,
             owner=self.trader.address,
             sell_token="0x0000000000000000000000000000000000000000",  # Placeholder
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
@@ -332,14 +379,13 @@ class TraderSimulator:
         )
 
         # Update status
-        self.order_tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.SUBMITTED)
 
-        # Submit (mock)
-        if self.api_client is None:
-            self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
+        # Mark as accepted (conditional orders don't go through orderbook API)
+        self.order_tracker.update_order_status(temp_uid, OrderStatus.ACCEPTED)
 
         self.trader.increment_orders_submitted()
-        self.order_tracker.start_monitoring(order_uid, self.api_client)
+        # Don't start API monitoring - conditional orders don't exist in orderbook API
 
     async def _constant_rate_loop(self, duration: float) -> None:
         """Run trading loop with constant rate pattern."""

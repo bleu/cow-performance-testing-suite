@@ -6,10 +6,18 @@ transitions, and calculate order metrics for performance analysis.
 """
 
 import asyncio
+import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from cow_performance.metrics import OrderMetadata, OrderMetrics, OrderStatus
+from cow_performance.metrics import MetricsStore, OrderMetadata, OrderMetrics, OrderStatus
+
+from .status_mapping import map_api_status_to_order_status
+
+if TYPE_CHECKING:
+    from cow_performance.api import InstrumentedOrderbookClient
+
+logger = logging.getLogger(__name__)
 
 
 class OrderTracker:
@@ -20,18 +28,25 @@ class OrderTracker:
     and calculates performance metrics for load testing analysis.
     """
 
-    def __init__(self, poll_interval: float = 5.0, max_poll_attempts: int = 60):
+    def __init__(
+        self,
+        poll_interval: float = 5.0,
+        max_poll_attempts: int = 60,
+        metrics_store: MetricsStore | None = None,
+    ):
         """
         Initialize the order tracker.
 
         Args:
             poll_interval: Seconds between status polls (default 5.0)
             max_poll_attempts: Maximum number of poll attempts before giving up (default 60)
+            metrics_store: Optional MetricsStore for persisting order metrics
         """
         self.poll_interval = poll_interval
         self.max_poll_attempts = max_poll_attempts
+        self._metrics_store = metrics_store
         self._orders: dict[str, OrderMetadata] = {}
-        self._polling_tasks: dict[str, asyncio.Task] = {}
+        self._polling_tasks: dict[str, asyncio.Task[OrderMetadata]] = {}
 
     def track_order(
         self,
@@ -66,6 +81,13 @@ class OrderTracker:
             buy_amount=buy_amount,
         )
         self._orders[order_uid] = metadata
+
+        # Also add to MetricsStore if available
+        if self._metrics_store is not None:
+            # Note: We don't acquire lock here as this is typically called
+            # from a single context. Lock will be acquired on updates.
+            self._metrics_store.add_order(metadata)
+
         return metadata
 
     def get_order(self, order_uid: str) -> OrderMetadata | None:
@@ -88,6 +110,23 @@ class OrderTracker:
             List of all OrderMetadata instances
         """
         return list(self._orders.values())
+
+    def update_order_uid(self, old_uid: str, new_uid: str) -> None:
+        """
+        Replace a temporary UID with the real UID from API response.
+
+        Args:
+            old_uid: The temporary/pending UID
+            new_uid: The real UID from the orderbook API
+        """
+        if old_uid in self._orders:
+            order = self._orders.pop(old_uid)
+            order.order_uid = new_uid
+            self._orders[new_uid] = order
+
+            # Also update in metrics store if present
+            if self._metrics_store:
+                self._metrics_store.update_order_uid(old_uid, new_uid)
 
     def update_order_status(
         self,
@@ -119,35 +158,62 @@ class OrderTracker:
     async def poll_order_status(
         self,
         order_uid: str,
-        api_client: Any,  # Type would be the API client class
+        api_client: "InstrumentedOrderbookClient | Any",
     ) -> OrderStatus:
         """
-        Poll order status from the API.
+        Poll order status from the orderbook API.
 
-        This is a mock implementation that simulates API polling.
-        In a real implementation, this would use aiohttp to call the orderbook API.
+        Fetches current order state from the API and updates internal tracking.
 
         Args:
             order_uid: The order UID to poll
-            api_client: The API client to use for polling
+            api_client: The API client to use for polling (InstrumentedOrderbookClient)
 
         Returns:
             The current order status
         """
-        # Mock implementation - in real use, this would call the API
-        # Example: response = await api_client.get_order(order_uid)
         metadata = self.get_order(order_uid)
         if metadata is None:
             return OrderStatus.FAILED
 
-        # For now, return the current status
-        # Real implementation would fetch from API and update
-        return metadata.current_status
+        try:
+            # Call the real API
+            response = await api_client.get_order(order_uid)
+
+            # Extract status from response
+            api_status = response.get("status", "")
+
+            # Map to our enum
+            new_status = map_api_status_to_order_status(api_status)
+
+            # Extract filled amount if available
+            filled_amount = response.get("executedSellAmount")
+
+            # Update our tracking
+            self.update_order_status(
+                order_uid,
+                new_status,
+                filled_amount=filled_amount,
+            )
+
+            logger.debug(f"Order {order_uid[:10]}... status: {api_status} -> {new_status.value}")
+
+            return new_status
+
+        except ValueError as e:
+            # Unknown status - log but don't fail
+            logger.warning(f"Unknown status for order {order_uid}: {e}")
+            return metadata.current_status
+
+        except Exception as e:
+            # API error - log and return current status
+            logger.warning(f"Failed to poll order {order_uid}: {e}")
+            return metadata.current_status
 
     async def monitor_order(
         self,
         order_uid: str,
-        api_client: Any | None = None,
+        api_client: "InstrumentedOrderbookClient | Any | None" = None,
     ) -> OrderMetadata:
         """
         Monitor an order until it reaches a terminal state.
@@ -157,7 +223,7 @@ class OrderTracker:
 
         Args:
             order_uid: The order UID to monitor
-            api_client: Optional API client for polling (mock if None)
+            api_client: Optional API client for polling (required for real monitoring)
 
         Returns:
             The final OrderMetadata
@@ -170,12 +236,15 @@ class OrderTracker:
                 break
 
             if metadata.is_terminal_state():
+                logger.debug(
+                    f"Order {order_uid[:10]}... reached terminal state: "
+                    f"{metadata.current_status.value}"
+                )
                 break
 
-            # Poll status (mock implementation)
+            # Poll status if we have an API client
             if api_client is not None:
-                status = await self.poll_order_status(order_uid, api_client)
-                self.update_order_status(order_uid, status)
+                await self.poll_order_status(order_uid, api_client)
 
             await asyncio.sleep(self.poll_interval)
             attempts += 1
@@ -183,6 +252,7 @@ class OrderTracker:
         # If we hit max attempts, mark as failed
         metadata = self.get_order(order_uid)
         if metadata and not metadata.is_terminal_state():
+            logger.warning(f"Order {order_uid[:10]}... timed out after {attempts} poll attempts")
             self.update_order_status(
                 order_uid,
                 OrderStatus.FAILED,
@@ -195,7 +265,9 @@ class OrderTracker:
             creation_time=time.time(),
         )
 
-    def start_monitoring(self, order_uid: str, api_client: Any | None = None) -> asyncio.Task:
+    def start_monitoring(
+        self, order_uid: str, api_client: "InstrumentedOrderbookClient | Any | None" = None
+    ) -> asyncio.Task[OrderMetadata]:
         """
         Start monitoring an order in the background.
 

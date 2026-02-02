@@ -37,5 +37,6 @@ repos:
           - eth-abi
           - typer
           - rich
+          - numpy>=2.0.0
         args: [--config-file=pyproject.toml]
         files: ^src/
