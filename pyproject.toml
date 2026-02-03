@@ -127,6 +127,10 @@ module = [
 ]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "cow_performance.baselines.git_info"
+ignore_missing_imports = true  # GitPython has no type stubs (imported as "git")
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
