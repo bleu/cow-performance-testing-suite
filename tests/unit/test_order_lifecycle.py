@@ -188,7 +188,7 @@ class TestOrderTrackerPolling:
 
     @pytest.mark.asyncio
     async def test_monitor_order_timeout(self, tracker):
-        """Test monitoring times out and marks as failed."""
+        """Test monitoring stops after max attempts without marking as failed."""
         order_uid = "0x1234"
         tracker.track_order(order_uid, owner="0xowner")
         tracker.update_order_status(order_uid, OrderStatus.SUBMITTED)
@@ -198,8 +198,9 @@ class TestOrderTrackerPolling:
 
         metadata = await tracker.monitor_order(order_uid, mock_client)
 
-        assert metadata.current_status == OrderStatus.FAILED
-        assert metadata.error_message == "Max poll attempts exceeded"
+        # Timeout does not mark as FAILED; last polled status (OPEN) is returned
+        assert metadata.current_status == OrderStatus.OPEN
+        assert metadata.error_message is None
 
     @pytest.mark.asyncio
     async def test_monitor_order_without_client(self, tracker):

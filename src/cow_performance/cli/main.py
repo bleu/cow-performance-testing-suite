@@ -223,19 +223,19 @@ def baselines(
             sys.exit(1)
 
         name, file_path = save.split(":", 1)
-        save_baseline_command(name.strip(), Path(file_path.strip()), dir_path)
+        save_baseline_command(name.strip(), Path(file_path.strip()), baselines_dir=dir_path)
         return
 
     if show:
-        show_baseline_command(show, dir_path)
+        show_baseline_command(show, baselines_dir=dir_path)
         return
 
     if delete:
-        delete_baseline_command(delete, dir_path)
+        delete_baseline_command(delete, baselines_dir=dir_path)
         return
 
     # List baselines (default)
-    list_baselines_command(dir_path)
+    list_baselines_command(baselines_dir=dir_path)
 
 
 @app.command()

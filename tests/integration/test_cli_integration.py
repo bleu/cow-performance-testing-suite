@@ -86,8 +86,8 @@ class TestBaselinesCommand:
         assert result.exit_code == 0
         assert "No baselines found" in result.stdout
 
-    def test_save_and_list_baseline(self, temp_dir: Path) -> None:
-        """Test saving a baseline and listing it."""
+    def test_save_from_file_deprecated(self, temp_dir: Path) -> None:
+        """Test that saving from file is deprecated and returns error."""
         baselines_dir = temp_dir / "baselines"
         results_file = temp_dir / "results.json"
 
@@ -100,89 +100,52 @@ class TestBaselinesCommand:
         with open(results_file, "w") as f:
             json.dump(results_data, f)
 
-        # Save baseline
+        # Save baseline - should fail with deprecation message
         save_arg = f"test-v1:{results_file}"
         result = runner.invoke(
             app,
             ["baselines", "--save", save_arg, "--dir", str(baselines_dir)],
         )
 
-        assert result.exit_code == 0
-        assert "Baseline saved" in result.stdout
-
-        # List baselines
-        result = runner.invoke(app, ["baselines", "--dir", str(baselines_dir)])
-
-        assert result.exit_code == 0
-        assert "test-v1" in result.stdout
-
-    def test_show_baseline(self, temp_dir: Path) -> None:
-        """Test showing baseline details."""
-        baselines_dir = temp_dir / "baselines"
-        results_file = temp_dir / "results.json"
-
-        # Create mock results file
-        results_data = {
-            "orchestration": {"num_traders": 5, "duration": 2},
-            "orders": {"total_submitted": 10, "market_orders": 5},
-            "performance": {"orders_per_second": 5.0},
-        }
-        with open(results_file, "w") as f:
-            json.dump(results_data, f)
-
-        # Save baseline first
-        save_arg = f"test-v1:{results_file}"
-        runner.invoke(
-            app,
-            ["baselines", "--save", save_arg, "--dir", str(baselines_dir)],
+        # Now returns error since file-based save is deprecated
+        assert result.exit_code == 1
+        assert (
+            "deprecated" in result.stdout.lower() or "no longer supported" in result.stdout.lower()
         )
 
-        # Show baseline
-        result = runner.invoke(app, ["baselines", "--show", "test-v1", "--dir", str(baselines_dir)])
-
-        assert result.exit_code == 0
-        assert "Baseline: test-v1" in result.stdout
-
-    def test_delete_baseline(self, temp_dir: Path) -> None:
-        """Test deleting a baseline."""
+    def test_show_baseline_not_found(self, temp_dir: Path) -> None:
+        """Test showing a non-existent baseline."""
         baselines_dir = temp_dir / "baselines"
-        results_file = temp_dir / "results.json"
+        baselines_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create mock results file
-        results_data = {
-            "orchestration": {"num_traders": 5},
-            "orders": {"total_submitted": 10},
-            "performance": {"orders_per_second": 5.0},
-        }
-        with open(results_file, "w") as f:
-            json.dump(results_data, f)
-
-        # Save baseline first
-        save_arg = f"test-v1:{results_file}"
-        runner.invoke(
-            app,
-            ["baselines", "--save", save_arg, "--dir", str(baselines_dir)],
+        # Show baseline that doesn't exist
+        result = runner.invoke(
+            app, ["baselines", "--show", "nonexistent", "--dir", str(baselines_dir)]
         )
 
-        # Delete baseline
+        assert result.exit_code == 2  # FileNotFoundError exit code
+        assert "not found" in result.stdout.lower()
+
+    def test_delete_baseline_not_found(self, temp_dir: Path) -> None:
+        """Test deleting a non-existent baseline."""
+        baselines_dir = temp_dir / "baselines"
+        baselines_dir.mkdir(parents=True, exist_ok=True)
+
+        # Delete baseline that doesn't exist
         result = runner.invoke(
             app,
-            ["baselines", "--delete", "test-v1", "--dir", str(baselines_dir)],
+            ["baselines", "--delete", "nonexistent", "--dir", str(baselines_dir)],
         )
 
-        assert result.exit_code == 0
-        assert "Baseline deleted" in result.stdout
-
-        # Verify baseline was deleted
-        baseline_file = baselines_dir / "test-v1.json"
-        assert not baseline_file.exists()
+        assert result.exit_code == 2  # FileNotFoundError exit code
+        assert "not found" in result.stdout.lower()
 
 
 class TestEndToEndWorkflow:
     """Integration tests for complete workflows."""
 
-    def test_complete_config_and_baseline_workflow(self, temp_dir: Path) -> None:
-        """Test complete workflow: create config, create scenario, save baseline."""
+    def test_complete_config_and_scenario_workflow(self, temp_dir: Path) -> None:
+        """Test complete workflow: create config, create scenario, validate."""
         # Step 1: Create config file
         config_path = temp_dir / "config.yml"
         result = runner.invoke(app, ["config", "--save-template", str(config_path)])
@@ -199,30 +162,7 @@ class TestEndToEndWorkflow:
         result = runner.invoke(app, ["scenarios", "--validate", str(scenario_path)])
         assert result.exit_code == 0
 
-        # Step 4: Create mock results and save as baseline
-        results_path = temp_dir / "results.json"
-        results_data = {
-            "orchestration": {"num_traders": 10, "duration": 60},
-            "orders": {"total_submitted": 100, "market_orders": 50},
-            "performance": {"orders_per_second": 1.67},
-        }
-        with open(results_path, "w") as f:
-            json.dump(results_data, f)
-
-        baselines_dir = temp_dir / "baselines"
-        save_arg = f"v1.0:{results_path}"
-        result = runner.invoke(
-            app,
-            ["baselines", "--save", save_arg, "--dir", str(baselines_dir)],
-        )
-        assert result.exit_code == 0
-
-        # Step 5: List baselines
-        result = runner.invoke(app, ["baselines", "--dir", str(baselines_dir)])
-        assert result.exit_code == 0
-        assert "v1.0" in result.stdout
-
-        # Step 6: Show baseline details
-        result = runner.invoke(app, ["baselines", "--show", "v1.0", "--dir", str(baselines_dir)])
-        assert result.exit_code == 0
-        assert "Baseline: v1.0" in result.stdout
+        # Note: Baseline saving from file is deprecated.
+        # Baselines are now saved directly from test runs using
+        # 'cow-perf run --save-baseline <name>' with a MetricsStore.
+        # See COW-588 for details on the new baseline system.

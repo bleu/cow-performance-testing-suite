@@ -255,11 +255,6 @@ class OrderTracker:
         metadata = self.get_order(order_uid)
         if metadata and not metadata.is_terminal_state():
             logger.warning(f"Order {order_uid[:10]}... timed out after {attempts} poll attempts")
-            self.update_order_status(
-                order_uid,
-                OrderStatus.FAILED,
-                error_message="Max poll attempts exceeded",
-            )
 
         return metadata or OrderMetadata(
             order_uid=order_uid,

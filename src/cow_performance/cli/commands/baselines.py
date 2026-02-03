@@ -1,10 +1,9 @@
 """Baseline management commands for performance testing.
 
-This module provides basic baseline management functionality, with full
-comparison and regression detection coming in M2-08.
+This module provides CLI commands for managing performance baselines
+using the BaselineManager class.
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,306 +11,228 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-# Default directory for storing baselines
-BASELINES_DIR = Path.home() / ".cow-perf" / "baselines"
-
-
-def save_baseline(
-    name: str,
-    metrics: dict[str, Any],
-    baselines_dir: Path | None = None,
-) -> Path:
-    """Save performance metrics as a baseline.
-
-    Args:
-        name: Baseline name
-        metrics: Performance metrics to save
-        baselines_dir: Optional directory for baselines (uses default if None)
-
-    Returns:
-        Path to saved baseline file
-
-    Raises:
-        ValueError: If baseline name is invalid
-    """
-    if not name or not name.strip():
-        raise ValueError("Baseline name cannot be empty")
-
-    # Use default directory if not specified
-    if baselines_dir is None:
-        baselines_dir = BASELINES_DIR
-
-    # Ensure directory exists
-    baselines_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create baseline data structure
-    baseline_data = {
-        "name": name,
-        "timestamp": datetime.now().isoformat(),
-        "metrics": metrics,
-    }
-
-    # Generate filename from name (sanitize)
-    safe_name = name.replace(" ", "-").replace("/", "-")
-    filename = f"{safe_name}.json"
-    baseline_path = baselines_dir / filename
-
-    # Save to file
-    with open(baseline_path, "w") as f:
-        json.dump(baseline_data, f, indent=2)
-
-    return baseline_path
-
-
-def load_baseline(
-    name: str,
-    baselines_dir: Path | None = None,
-) -> dict[str, Any]:
-    """Load a saved baseline.
-
-    Args:
-        name: Baseline name
-        baselines_dir: Optional directory for baselines (uses default if None)
-
-    Returns:
-        Baseline data including metadata and metrics
-
-    Raises:
-        FileNotFoundError: If baseline doesn't exist
-    """
-    if baselines_dir is None:
-        baselines_dir = BASELINES_DIR
-
-    # Try to find baseline file
-    safe_name = name.replace(" ", "-").replace("/", "-")
-    baseline_path = baselines_dir / f"{safe_name}.json"
-
-    if not baseline_path.exists():
-        raise FileNotFoundError(f"Baseline not found: {name} (looking for {baseline_path})")
-
-    with open(baseline_path, "r") as f:
-        baseline_data = json.load(f)
-        if not isinstance(baseline_data, dict):
-            raise ValueError(f"Baseline file must contain a JSON object, got {type(baseline_data)}")
-        return baseline_data
-
-
-def list_baselines(baselines_dir: Path | None = None) -> list[dict[str, Any]]:
-    """List all saved baselines.
-
-    Args:
-        baselines_dir: Optional directory for baselines (uses default if None)
-
-    Returns:
-        List of baseline metadata dictionaries
-    """
-    if baselines_dir is None:
-        baselines_dir = BASELINES_DIR
-
-    if not baselines_dir.exists():
-        return []
-
-    baselines = []
-
-    for baseline_file in sorted(baselines_dir.glob("*.json")):
-        try:
-            with open(baseline_file, "r") as f:
-                baseline_data = json.load(f)
-
-            # Extract key metrics for summary
-            metrics = baseline_data.get("metrics", {})
-            orders = metrics.get("orders", {})
-            performance = metrics.get("performance", {})
-
-            baselines.append(
-                {
-                    "name": baseline_data.get("name", baseline_file.stem),
-                    "timestamp": baseline_data.get("timestamp", "unknown"),
-                    "file": baseline_file.name,
-                    "total_orders": orders.get("total_submitted", 0),
-                    "orders_per_second": performance.get("orders_per_second", 0.0),
-                }
-            )
-        except Exception:
-            # Skip invalid files
-            continue
-
-    return baselines
-
-
-def delete_baseline(
-    name: str,
-    baselines_dir: Path | None = None,
-) -> None:
-    """Delete a saved baseline.
-
-    Args:
-        name: Baseline name
-        baselines_dir: Optional directory for baselines (uses default if None)
-
-    Raises:
-        FileNotFoundError: If baseline doesn't exist
-    """
-    if baselines_dir is None:
-        baselines_dir = BASELINES_DIR
-
-    safe_name = name.replace(" ", "-").replace("/", "-")
-    baseline_path = baselines_dir / f"{safe_name}.json"
-
-    if not baseline_path.exists():
-        raise FileNotFoundError(f"Baseline not found: {name}")
-
-    baseline_path.unlink()
+from cow_performance.baselines import BaselineManager, BaselineValidationError
 
 
 def save_baseline_command(
     name: str,
     results_file: Path,
+    description: str = "",
+    tags: list[str] | None = None,
     baselines_dir: Path | None = None,
 ) -> None:
-    """Save a baseline from a results file.
+    """
+    Save a baseline from a results file.
+
+    Note: This command is for backward compatibility. The preferred
+    method is to use BaselineManager.save() directly with a MetricsStore.
 
     Args:
         name: Baseline name
         results_file: Path to results JSON file
+        description: Optional description
+        tags: Optional list of tags
         baselines_dir: Optional directory for baselines
     """
     console = Console()
 
-    try:
-        # Load results from file
-        if not results_file.exists():
-            console.print(f"[bold red]Error:[/bold red] Results file not found: {results_file}")
-            raise SystemExit(2)
+    console.print(
+        "[yellow]Warning:[/yellow] Saving from results file is deprecated. "
+        "Use 'cow-perf run --save-baseline <name>' to save baselines directly from test runs."
+    )
 
-        with open(results_file, "r") as f:
-            metrics = json.load(f)
-
-        # Save as baseline
-        baseline_path = save_baseline(name, metrics, baselines_dir)
-
-        console.print(f"[bold green]✓[/bold green] Baseline saved: {name}")
-        console.print(f"  Location: {baseline_path}")
-
-    except ValueError as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise SystemExit(3) from None
-    except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {e}")
-        raise SystemExit(1) from None
+    console.print("[bold red]Error:[/bold red] This command is no longer supported.")
+    console.print("Please use [cyan]cow-perf run --save-baseline <name>[/cyan] to save baselines.")
+    raise SystemExit(1)
 
 
 def show_baseline_command(
     name: str,
     baselines_dir: Path | None = None,
 ) -> None:
-    """Show details of a saved baseline.
+    """
+    Show details of a saved baseline.
 
     Args:
-        name: Baseline name
+        name: Baseline name, ID, or git commit
         baselines_dir: Optional directory for baselines
     """
     console = Console()
+    manager = BaselineManager(baselines_dir)
 
     try:
-        baseline_data = load_baseline(name, baselines_dir)
+        baseline = manager.load(name)
 
-        console.print(f"[bold cyan]Baseline:[/bold cyan] {baseline_data['name']}")
-        console.print(f"[dim]Created: {baseline_data['timestamp']}[/dim]\n")
+        # Header
+        console.print(f"[bold cyan]Baseline:[/bold cyan] {baseline.name}")
+        console.print(f"[dim]ID: {baseline.id}[/dim]")
+        console.print(f"[dim]Schema: v{baseline.schema_version}[/dim]")
 
-        # Extract metrics
-        metrics = baseline_data.get("metrics", {})
-        orchestration = metrics.get("orchestration", {})
-        orders = metrics.get("orders", {})
-        performance = metrics.get("performance", {})
+        # Format timestamp
+        created_dt = datetime.fromtimestamp(baseline.created_at)
+        console.print(f"[dim]Created: {created_dt.strftime('%Y-%m-%d %H:%M:%S')}[/dim]")
 
-        # Orchestration info
-        table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("Metric", style="cyan")
+        if baseline.description:
+            console.print(f"\n[italic]{baseline.description}[/italic]")
+
+        if baseline.tags:
+            console.print(f"[dim]Tags: {', '.join(baseline.tags)}[/dim]")
+
+        console.print()
+
+        # Git info table
+        if baseline.git_commit:
+            table = Table(title="Git Information", show_header=True, header_style="bold cyan")
+            table.add_column("Field", style="cyan")
+            table.add_column("Value", style="green")
+
+            table.add_row("Commit", baseline.git_commit[:12] if baseline.git_commit else "N/A")
+            table.add_row("Branch", baseline.git_branch or "N/A")
+            table.add_row("Repository", baseline.git_repo or "N/A")
+            table.add_row(
+                "Dirty",
+                "[yellow]Yes[/yellow]" if baseline.has_uncommitted_changes else "[green]No[/green]",
+            )
+
+            console.print(table)
+            console.print()
+
+        # Test config table
+        table = Table(title="Test Configuration", show_header=True, header_style="bold cyan")
+        table.add_column("Field", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+
+        table.add_row("Scenario", baseline.scenario_name or "N/A")
+        table.add_row("Duration", f"{baseline.duration_seconds:.1f}s")
+        table.add_row("Traders", str(baseline.num_traders))
+
+        console.print(table)
+        console.print()
+
+        # Environment table
+        table = Table(title="Environment", show_header=True, header_style="bold cyan")
+        table.add_column("Field", style="cyan")
         table.add_column("Value", style="green")
 
-        table.add_row("Traders", str(orchestration.get("num_traders", 0)))
-        table.add_row("Duration", f"{orchestration.get('duration', 0)}s")
+        table.add_row("Python", baseline.python_version)
+        table.add_row("Platform", baseline.platform)
 
         console.print(table)
         console.print()
 
-        # Orders table
-        table = Table(title="Orders", show_header=True, header_style="bold cyan")
+        # Order metrics table
+        if baseline.order_metrics:
+            om = baseline.order_metrics
+            table = Table(title="Order Metrics", show_header=True, header_style="bold cyan")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green", justify="right")
+
+            table.add_row("Total Orders", str(om.total_orders))
+            table.add_row("Filled", str(om.orders_filled))
+            table.add_row("Failed", str(om.orders_failed))
+            table.add_row("Success Rate", f"{om.success_rate * 100:.1f}%")
+            table.add_row("Time to Submit (p50)", f"{om.time_to_submit.p50 * 1000:.1f}ms")
+            table.add_row("Time to Submit (p95)", f"{om.time_to_submit.p95 * 1000:.1f}ms")
+            table.add_row("Time to Fill (p50)", f"{om.time_to_fill.p50 * 1000:.1f}ms")
+            table.add_row("Time to Fill (p95)", f"{om.time_to_fill.p95 * 1000:.1f}ms")
+
+            console.print(table)
+            console.print()
+
+        # API metrics table
+        if baseline.api_metrics:
+            am = baseline.api_metrics
+            table = Table(title="API Metrics", show_header=True, header_style="bold cyan")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green", justify="right")
+
+            table.add_row("Total Requests", str(am.total_requests))
+            table.add_row("Success Rate", f"{am.success_rate * 100:.1f}%")
+            table.add_row("Response Time (p50)", f"{am.response_time.p50:.1f}ms")
+            table.add_row("Response Time (p95)", f"{am.response_time.p95:.1f}ms")
+            table.add_row("Requests/sec", f"{am.requests_per_second:.2f}")
+
+            console.print(table)
+            console.print()
+
+        # Throughput summary
+        table = Table(title="Throughput", show_header=True, header_style="bold cyan")
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="green", justify="right")
 
-        table.add_row("Total Submitted", str(orders.get("total_submitted", 0)))
-        table.add_row("Market Orders", str(orders.get("market_orders", 0)))
-        table.add_row("Limit Orders", str(orders.get("limit_orders", 0)))
-        table.add_row("TWAP Orders", str(orders.get("twap_orders", 0)))
-        table.add_row("Stop-Loss Orders", str(orders.get("stop_loss_orders", 0)))
-        table.add_row("Good-After-Time Orders", str(orders.get("good_after_time_orders", 0)))
-
-        console.print(table)
-        console.print()
-
-        # Performance table
-        table = Table(title="Performance", show_header=True, header_style="bold cyan")
-        table.add_column("Metric", style="cyan")
-        table.add_column("Value", style="green", justify="right")
-
-        table.add_row(
-            "Orders per Second",
-            f"{performance.get('orders_per_second', 0.0):.2f}",
-        )
-        table.add_row(
-            "Avg Order Latency",
-            f"{performance.get('avg_order_latency_ms', 0.0):.2f}ms",
-        )
+        table.add_row("Orders/sec", f"{baseline.orders_per_second:.2f}")
+        table.add_row("Peak Orders/sec", f"{baseline.peak_orders_per_second:.2f}")
 
         console.print(table)
 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise SystemExit(2) from None
+    except BaselineValidationError as e:
+        console.print(f"[bold red]Validation Error:[/bold red] {e}")
+        raise SystemExit(3) from None
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise SystemExit(1) from None
 
 
-def list_baselines_command(baselines_dir: Path | None = None) -> None:
-    """List all saved baselines.
+def list_baselines_command(
+    tags: list[str] | None = None,
+    branch: str | None = None,
+    baselines_dir: Path | None = None,
+) -> None:
+    """
+    List all saved baselines.
 
     Args:
+        tags: Optional tags to filter by
+        branch: Optional git branch to filter by
         baselines_dir: Optional directory for baselines
     """
     console = Console()
+    manager = BaselineManager(baselines_dir)
 
-    baselines = list_baselines(baselines_dir)
+    baselines = manager.list(tags=tags, branch=branch)
 
     if not baselines:
         console.print("[yellow]No baselines found.[/yellow]")
-        console.print("\n[dim]Save a baseline with:[/dim]")
-        console.print("  cow-perf run --save")
-        console.print("  cow-perf baselines --save my-baseline results.json")
+        if tags or branch:
+            console.print("[dim]Try removing filters to see all baselines.[/dim]")
+        else:
+            console.print("\n[dim]Save a baseline with:[/dim]")
+            console.print("  cow-perf run --save-baseline my-baseline")
         return
 
     # Display baselines table
     table = Table(title="Saved Baselines", show_header=True, header_style="bold cyan")
     table.add_column("Name", style="green")
     table.add_column("Created", style="dim")
-    table.add_column("Orders", justify="right")
+    table.add_column("Branch", style="cyan")
+    table.add_column("Commit", style="dim")
     table.add_column("Orders/sec", justify="right")
+    table.add_column("Tags", style="dim")
 
-    for baseline in baselines:
+    for metadata in baselines:
         # Format timestamp
         try:
-            timestamp = datetime.fromisoformat(baseline["timestamp"])
+            timestamp = datetime.fromtimestamp(metadata.created_at)
             timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M")
         except Exception:
-            timestamp_str = baseline["timestamp"]
+            timestamp_str = "unknown"
+
+        # Format commit (truncate)
+        commit_str = metadata.git_commit[:8] if metadata.git_commit else "N/A"
+
+        # Format tags
+        tags_str = ", ".join(metadata.tags) if metadata.tags else ""
 
         table.add_row(
-            baseline["name"],
+            metadata.name,
             timestamp_str,
-            str(baseline["total_orders"]),
-            f"{baseline['orders_per_second']:.2f}",
+            metadata.git_branch or "N/A",
+            commit_str,
+            f"{metadata.orders_per_second:.2f}",
+            tags_str,
         )
 
     console.print(table)
@@ -321,17 +242,19 @@ def delete_baseline_command(
     name: str,
     baselines_dir: Path | None = None,
 ) -> None:
-    """Delete a saved baseline.
+    """
+    Delete a saved baseline.
 
     Args:
-        name: Baseline name
+        name: Baseline name or ID
         baselines_dir: Optional directory for baselines
     """
     console = Console()
+    manager = BaselineManager(baselines_dir)
 
     try:
-        delete_baseline(name, baselines_dir)
-        console.print(f"[bold green]✓[/bold green] Baseline deleted: {name}")
+        manager.delete(name)
+        console.print(f"[bold green]\u2713[/bold green] Baseline deleted: {name}")
 
     except FileNotFoundError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
@@ -339,3 +262,39 @@ def delete_baseline_command(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         raise SystemExit(1) from None
+
+
+# Keep these functions for backward compatibility during transition
+# They will be removed in a future version
+
+
+def save_baseline(
+    name: str,
+    metrics: dict[str, Any],
+    baselines_dir: Path | None = None,
+) -> Path:
+    """Deprecated: Use BaselineManager.save() instead."""
+    raise NotImplementedError("save_baseline() is deprecated. Use BaselineManager.save() instead.")
+
+
+def load_baseline(
+    name: str,
+    baselines_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Deprecated: Use BaselineManager.load() instead."""
+    raise NotImplementedError("load_baseline() is deprecated. Use BaselineManager.load() instead.")
+
+
+def list_baselines(baselines_dir: Path | None = None) -> list[dict[str, Any]]:
+    """Deprecated: Use BaselineManager.list() instead."""
+    raise NotImplementedError("list_baselines() is deprecated. Use BaselineManager.list() instead.")
+
+
+def delete_baseline(
+    name: str,
+    baselines_dir: Path | None = None,
+) -> None:
+    """Deprecated: Use BaselineManager.delete() instead."""
+    raise NotImplementedError(
+        "delete_baseline() is deprecated. Use BaselineManager.delete() instead."
+    )

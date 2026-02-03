@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from web3 import Web3
 
-from cow_performance.api import InstrumentedOrderbookClient
+from cow_performance.api import InstrumentedOrderbookClient, OrderbookClient
 from cow_performance.cli.live_display import create_performance_metrics_dict
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
@@ -243,7 +243,7 @@ async def run_performance_test(
         console.print()
 
     # Create API client first (needed for quotes in OrderFactory)
-    api_client = None
+    api_client: OrderbookClient | None = None
     if not dry_run:
         api_client = OrderbookClient(
             base_url=config.api.base_url,
@@ -355,11 +355,10 @@ async def run_performance_test(
         settlement_wait_time=float(settlement_wait_time),
     )
 
-    # Create API client (skip in dry run mode)
-    # Use InstrumentedOrderbookClient for metrics collection
-    api_client = None
+    # Create instrumented API client for metrics collection (skip in dry run mode)
+    instrumented_client: InstrumentedOrderbookClient | None = None
     if not dry_run:
-        api_client = InstrumentedOrderbookClient(
+        instrumented_client = InstrumentedOrderbookClient(
             base_url=config.api.base_url,
             metrics_store=metrics_store,
             timeout=config.api.timeout,
@@ -367,9 +366,9 @@ async def run_performance_test(
         )
 
         if verbose:
-            console.print(f"[cyan]API Client:[/cyan] {config.api.base_url}")
+            console.print(f"[cyan]Instrumented API Client:[/cyan] {config.api.base_url}")
             # Check API health
-            is_healthy = await api_client.check_health()
+            is_healthy = await instrumented_client.check_health()
             if is_healthy:
                 console.print("[green]✓[/green] Orderbook API is healthy")
             else:
@@ -385,7 +384,7 @@ async def run_performance_test(
         order_tracker=order_tracker,
         default_behavior_config=behavior_config,
         orchestration_config=orchestration_config,
-        api_client=api_client,
+        api_client=instrumented_client,
         order_cleanup_config=config.order_cleanup,
         rate_limit_config=rate_limit_config,
     )
