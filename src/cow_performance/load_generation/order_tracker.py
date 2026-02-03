@@ -249,7 +249,9 @@ class OrderTracker:
             await asyncio.sleep(self.poll_interval)
             attempts += 1
 
-        # If we hit max attempts, mark as failed
+        # If we hit max attempts, stop monitoring but don't mark as failed
+        # The orchestrator's settlement wait period will continue monitoring
+        # and will determine the final status
         metadata = self.get_order(order_uid)
         if metadata and not metadata.is_terminal_state():
             logger.warning(f"Order {order_uid[:10]}... timed out after {attempts} poll attempts")

@@ -16,6 +16,7 @@ from .abi_encoding import (
     encode_stop_loss_data,
     encode_twap_data,
 )
+from .app_data import compute_app_data_hash, create_app_data, create_app_data_doc
 from .composable_cow import (
     get_tradeable_order,
     remove_conditional_order,
@@ -51,6 +52,7 @@ from .order_factory import OrderFactory
 from .order_schema import (
     EIP712Domain,
     OrderBalance,
+    OrderClass,
     OrderKind,
     OrderParameters,
     SignedOrder,
@@ -91,6 +93,8 @@ from .token_pair import (
 from .trader_account import TraderAccount, TraderPool
 from .trader_orchestrator import (
     OrchestrationConfig,
+    RateLimitConfig,
+    RateLimiter,
     TraderOrchestrator,
     run_load_test,
 )
@@ -99,6 +103,7 @@ from .trader_simulator import TraderBehaviorConfig, TraderSimulator, TradingPatt
 __all__ = [
     # Order schema
     "OrderKind",
+    "OrderClass",
     "OrderBalance",
     "SigningScheme",
     "OrderParameters",
@@ -107,6 +112,10 @@ __all__ = [
     "create_order_hash",
     "get_order_domain",
     "get_order_types",
+    # AppData
+    "create_app_data",
+    "create_app_data_doc",
+    "compute_app_data_hash",
     # Token pairs
     "Token",
     "TokenPair",
@@ -176,6 +185,8 @@ __all__ = [
     "TraderBehaviorConfig",
     "TraderSimulator",
     "OrchestrationConfig",
+    "RateLimitConfig",
+    "RateLimiter",
     "TraderOrchestrator",
     "run_load_test",
 ]

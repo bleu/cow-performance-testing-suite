@@ -202,6 +202,63 @@ class OrderSigner:
         return bool(recovered_address.lower() == signed_order.from_.lower())
 
 
+def sign_order_cancellations(
+    order_uids: list[str],
+    trader_account: LocalAccount,
+    chain_id: int,
+    settlement_contract: str,
+) -> str:
+    """Sign order cancellations using EIP-712.
+
+    Args:
+        order_uids: List of order UIDs to cancel
+        trader_account: Trader's account for signing
+        chain_id: Network chain ID
+        settlement_contract: Settlement contract address
+
+    Returns:
+        Signature as hex string (with 0x prefix)
+    """
+    # EIP-712 domain
+    domain = {
+        "name": "Gnosis Protocol",
+        "version": "v2",
+        "chainId": chain_id,
+        "verifyingContract": Web3.to_checksum_address(settlement_contract),
+    }
+
+    # EIP-712 message types
+    message_types = {
+        "OrderCancellations": [
+            {"name": "orderUids", "type": "bytes[]"},
+        ]
+    }
+
+    # Convert order UIDs to bytes
+    order_uid_bytes = [
+        bytes.fromhex(uid[2:] if uid.startswith("0x") else uid) for uid in order_uids
+    ]
+
+    # Message data
+    message_data = {
+        "orderUids": order_uid_bytes,
+    }
+
+    # Sign using EIP-712
+    signable_message = encode_typed_data(
+        domain_data=domain,
+        message_types=message_types,
+        message_data=message_data,
+    )
+
+    signed_message = Account.sign_message(
+        signable_message,
+        private_key=trader_account.key,
+    )
+
+    return str("0x" + signed_message.signature.hex())
+
+
 class ConditionalOrderSigner:
     """
     Handles signing of conditional orders for ComposableCow.

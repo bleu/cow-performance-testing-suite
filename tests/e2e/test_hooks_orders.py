@@ -24,6 +24,7 @@ from cow_performance.load_generation import (
     TraderAccount,
     create_mainnet_token_registry,
 )
+from cow_performance.load_generation.order_validation import validate_app_data_hash
 from tests.e2e.conftest import DAI, SETTLEMENT_CONTRACT, WETH
 
 # HooksTrampoline contract address on mainnet
@@ -84,9 +85,12 @@ class TestHooksOrders:
             },
         }
 
-        # Convert to JSON and hash for appData
-        app_data_json = json.dumps(hooks_metadata)
+        # Convert to JSON and hash for appData (use consistent serialization)
+        app_data_json = json.dumps(hooks_metadata, separators=(",", ":"), sort_keys=True)
         app_data_hash = Web3.keccak(text=app_data_json).hex()
+
+        # Validate hash before using it
+        validate_app_data_hash(hooks_metadata, app_data_hash)
 
         # Update order params with hooks appData
         order_params.appData = app_data_hash
@@ -171,9 +175,12 @@ class TestHooksOrders:
             },
         }
 
-        # Convert to JSON and hash for appData
-        app_data_json = json.dumps(hooks_metadata)
+        # Convert to JSON and hash for appData (use consistent serialization)
+        app_data_json = json.dumps(hooks_metadata, separators=(",", ":"), sort_keys=True)
         app_data_hash = Web3.keccak(text=app_data_json).hex()
+
+        # Validate hash before using it
+        validate_app_data_hash(hooks_metadata, app_data_hash)
 
         # Create order parameters manually with hooks appData
         from cow_performance.load_generation import OrderBalance, OrderKind, OrderParameters
@@ -375,9 +382,12 @@ class TestHooksOrders:
             },
         }
 
-        # Convert to JSON and hash for appData
-        app_data_json = json.dumps(hooks_metadata)
+        # Convert to JSON and hash for appData (use consistent serialization)
+        app_data_json = json.dumps(hooks_metadata, separators=(",", ":"), sort_keys=True)
         app_data_hash = Web3.keccak(text=app_data_json).hex()
+
+        # Validate hash before using it
+        validate_app_data_hash(hooks_metadata, app_data_hash)
 
         # Create order parameters manually with hooks appData
         from cow_performance.load_generation import OrderBalance, OrderKind, OrderParameters
