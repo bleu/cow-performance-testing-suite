@@ -11,7 +11,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from web3 import Web3
 
-from cow_performance.api import OrderbookClient
+from cow_performance.api import InstrumentedOrderbookClient
+from cow_performance.cli.live_display import create_performance_metrics_dict
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
     OrchestrationConfig,
@@ -25,6 +26,8 @@ from cow_performance.load_generation import (
     create_mainnet_token_registry,
 )
 from cow_performance.load_generation.order_signer import ConditionalOrderSigner
+from cow_performance.metrics import MetricsStore
+from cow_performance.monitoring import ResourceMonitor, ResourceMonitorConfig
 
 from ..config import PerformanceTestConfig
 from ..output import (
@@ -287,14 +290,14 @@ async def run_performance_test(
         composable_cow_contract=config.network.composable_cow_contract,
     )
 
-    # Create order tracker
-    # Set max_poll_attempts based on settlement_wait_time to ensure
-    # monitoring doesn't timeout before settlements can occur
-    poll_interval = 5.0
-    max_poll_attempts = int(settlement_wait_time / poll_interval) + 1
+    # Create shared metrics store for all components
+    metrics_store = MetricsStore()
+
+    # Create order tracker with metrics store
     order_tracker = OrderTracker(
-        poll_interval=poll_interval,
-        max_poll_attempts=max_poll_attempts,
+        poll_interval=5.0,  # Poll every 5 seconds
+        max_poll_attempts=12,  # Up to 60 seconds
+        metrics_store=metrics_store,
     )
 
     # Create trader behavior config from app config
@@ -352,6 +355,27 @@ async def run_performance_test(
         settlement_wait_time=float(settlement_wait_time),
     )
 
+    # Create API client (skip in dry run mode)
+    # Use InstrumentedOrderbookClient for metrics collection
+    api_client = None
+    if not dry_run:
+        api_client = InstrumentedOrderbookClient(
+            base_url=config.api.base_url,
+            metrics_store=metrics_store,
+            timeout=config.api.timeout,
+            max_retries=config.api.max_retries,
+        )
+
+        if verbose:
+            console.print(f"[cyan]API Client:[/cyan] {config.api.base_url}")
+            # Check API health
+            is_healthy = await api_client.check_health()
+            if is_healthy:
+                console.print("[green]✓[/green] Orderbook API is healthy")
+            else:
+                console.print("[yellow]⚠[/yellow] Warning: Could not reach orderbook API")
+            console.print()
+
     orchestrator = TraderOrchestrator(
         trader_pool=trader_pool,
         order_factory=order_factory,
@@ -370,30 +394,52 @@ async def run_performance_test(
     shutdown_handler = GracefulShutdownHandler(orchestrator)
     signal.signal(signal.SIGINT, shutdown_handler.handle_signal)
 
-    # Run the test with progress display
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[bold blue]{task.description}"),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task(
-            f"Running performance test with {num_traders} traders...",
-            total=None,
+    # Create resource monitor (only if not dry-run)
+    resource_monitor = None
+    if not dry_run:
+        resource_config = ResourceMonitorConfig(
+            service_patterns=["orderbook", "autopilot", "driver", "baseline", "chain"],
+            sample_interval=5.0,
         )
+        resource_monitor = ResourceMonitor(metrics_store, resource_config)
 
-        try:
-            # Start test
-            start_time = datetime.now()
-            await orchestrator.run()
-            end_time = datetime.now()
+    # Start resource monitoring before test
+    if resource_monitor:
+        await resource_monitor.start()
+        if verbose and resource_monitor.is_running():
+            containers = resource_monitor.get_monitored_containers()
+            console.print(f"[cyan]Resource Monitor:[/cyan] Monitoring {len(containers)} containers")
+            console.print()
 
-            progress.update(task, description="[bold green]Test completed!")
+    # Run the test with progress display
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"Running performance test with {num_traders} traders...",
+                total=None,
+            )
 
-        except Exception as e:
-            progress.update(task, description="[bold red]Test failed!")
-            console.print(f"\n[bold red]Error:[/bold red] {e}")
-            raise
+            try:
+                # Start test
+                start_time = datetime.now()
+                await orchestrator.run()
+                end_time = datetime.now()
+
+                progress.update(task, description="[bold green]Test completed!")
+
+            except Exception as e:
+                progress.update(task, description="[bold red]Test failed!")
+                console.print(f"\n[bold red]Error:[/bold red] {e}")
+                raise
+    finally:
+        # Stop resource monitoring
+        if resource_monitor:
+            await resource_monitor.stop()
 
     # Get metrics
     metrics = orchestrator.get_metrics()
@@ -443,12 +489,13 @@ async def run_performance_test(
         "total_traders": num_traders,
     }
 
-    # Add performance metrics
+    # Add performance metrics with percentiles from aggregator
     elapsed = metrics["orchestration"]["elapsed_time"]
-    metrics["performance"]["orders_per_second"] = total_orders / elapsed if elapsed > 0 else 0.0
-    metrics["performance"]["avg_order_latency_ms"] = (
-        (elapsed * 1000 / total_orders) if total_orders > 0 else 0.0
-    )
+    perf_metrics = create_performance_metrics_dict(metrics_store, elapsed)
+    metrics["performance"] = perf_metrics
+
+    # Add metrics store summary (API metrics, resource metrics)
+    metrics["metrics_store"] = metrics_store.summary()
 
     return metrics
 

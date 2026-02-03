@@ -6,150 +6,18 @@ transitions, and calculate order metrics for performance analysis.
 """
 
 import asyncio
+import logging
 import time
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from cow_performance.metrics import MetricsStore, OrderMetadata, OrderMetrics, OrderStatus
 
-class OrderStatus(str, Enum):
-    """Order lifecycle states."""
+from .status_mapping import map_api_status_to_order_status
 
-    CREATED = "created"  # Order created locally, not yet submitted
-    SUBMITTED = "submitted"  # Order submitted to API, awaiting confirmation
-    ACCEPTED = "accepted"  # Order accepted by orderbook
-    OPEN = "open"  # Order is active in the orderbook
-    FILLED = "filled"  # Order fully filled
-    PARTIALLY_FILLED = "partiallyFilled"  # Order partially filled
-    EXPIRED = "expired"  # Order expired (past validTo)
-    CANCELLED = "cancelled"  # Order cancelled by user
-    FAILED = "failed"  # Order submission/processing failed
+if TYPE_CHECKING:
+    from cow_performance.api import InstrumentedOrderbookClient
 
-
-@dataclass
-class OrderMetadata:
-    """
-    Metadata about an order for tracking and metrics.
-
-    Tracks timestamps, status transitions, and order details for
-    lifecycle analysis and performance monitoring.
-    """
-
-    order_uid: str
-    owner: str
-    creation_time: float
-    submission_time: float | None = None
-    acceptance_time: float | None = None
-    first_fill_time: float | None = None
-    completion_time: float | None = None
-
-    current_status: OrderStatus = OrderStatus.CREATED
-    status_history: list[tuple[float, OrderStatus]] = field(default_factory=list)
-
-    sell_token: str = ""
-    buy_token: str = ""
-    sell_amount: str = "0"
-    buy_amount: str = "0"
-
-    filled_amount: str = "0"
-    error_message: str | None = None
-
-    def update_status(self, new_status: OrderStatus, timestamp: float | None = None) -> None:
-        """
-        Update order status and record the transition.
-
-        Args:
-            new_status: The new order status
-            timestamp: Optional timestamp (uses current time if not provided)
-        """
-        if timestamp is None:
-            timestamp = time.time()
-
-        self.current_status = new_status
-        self.status_history.append((timestamp, new_status))
-
-        # Update lifecycle timestamps
-        if new_status == OrderStatus.SUBMITTED and self.submission_time is None:
-            self.submission_time = timestamp
-        elif (
-            new_status in (OrderStatus.ACCEPTED, OrderStatus.OPEN) and self.acceptance_time is None
-        ):
-            self.acceptance_time = timestamp
-
-        # Handle fill time (can be both FILLED and completion)
-        if (
-            new_status in (OrderStatus.FILLED, OrderStatus.PARTIALLY_FILLED)
-            and self.first_fill_time is None
-        ):
-            self.first_fill_time = timestamp
-
-        # Handle completion (terminal states)
-        if new_status in (
-            OrderStatus.FILLED,
-            OrderStatus.EXPIRED,
-            OrderStatus.CANCELLED,
-            OrderStatus.FAILED,
-        ):
-            if self.completion_time is None:
-                self.completion_time = timestamp
-
-    def get_time_to_submit(self) -> float | None:
-        """Get time from creation to submission in seconds."""
-        if self.submission_time is None:
-            return None
-        return self.submission_time - self.creation_time
-
-    def get_time_to_accept(self) -> float | None:
-        """Get time from submission to acceptance in seconds."""
-        if self.submission_time is None or self.acceptance_time is None:
-            return None
-        return self.acceptance_time - self.submission_time
-
-    def get_time_to_fill(self) -> float | None:
-        """Get time from acceptance to first fill in seconds."""
-        if self.acceptance_time is None or self.first_fill_time is None:
-            return None
-        return self.first_fill_time - self.acceptance_time
-
-    def get_total_lifecycle_time(self) -> float | None:
-        """Get total time from creation to completion in seconds."""
-        if self.completion_time is None:
-            return None
-        return self.completion_time - self.creation_time
-
-    def is_terminal_state(self) -> bool:
-        """Check if order is in a terminal state (no more updates expected)."""
-        return self.current_status in (
-            OrderStatus.FILLED,
-            OrderStatus.EXPIRED,
-            OrderStatus.CANCELLED,
-            OrderStatus.FAILED,
-        )
-
-
-@dataclass
-class OrderMetrics:
-    """
-    Aggregated metrics for order tracking.
-
-    Provides summary statistics for order lifecycle performance
-    across multiple orders.
-    """
-
-    total_orders: int = 0
-    orders_created: int = 0
-    orders_submitted: int = 0
-    orders_accepted: int = 0
-    orders_filled: int = 0
-    orders_partially_filled: int = 0
-    orders_expired: int = 0
-    orders_cancelled: int = 0
-    orders_failed: int = 0
-
-    avg_time_to_submit: float = 0.0
-    avg_time_to_accept: float = 0.0
-    avg_time_to_fill: float = 0.0
-    avg_total_lifecycle_time: float = 0.0
+logger = logging.getLogger(__name__)
 
 
 class OrderTracker:
@@ -160,18 +28,25 @@ class OrderTracker:
     and calculates performance metrics for load testing analysis.
     """
 
-    def __init__(self, poll_interval: float = 5.0, max_poll_attempts: int = 60):
+    def __init__(
+        self,
+        poll_interval: float = 5.0,
+        max_poll_attempts: int = 60,
+        metrics_store: MetricsStore | None = None,
+    ):
         """
         Initialize the order tracker.
 
         Args:
             poll_interval: Seconds between status polls (default 5.0)
             max_poll_attempts: Maximum number of poll attempts before giving up (default 60)
+            metrics_store: Optional MetricsStore for persisting order metrics
         """
         self.poll_interval = poll_interval
         self.max_poll_attempts = max_poll_attempts
+        self._metrics_store = metrics_store
         self._orders: dict[str, OrderMetadata] = {}
-        self._polling_tasks: dict[str, asyncio.Task] = {}
+        self._polling_tasks: dict[str, asyncio.Task[OrderMetadata]] = {}
 
     def track_order(
         self,
@@ -206,6 +81,13 @@ class OrderTracker:
             buy_amount=buy_amount,
         )
         self._orders[order_uid] = metadata
+
+        # Also add to MetricsStore if available
+        if self._metrics_store is not None:
+            # Note: We don't acquire lock here as this is typically called
+            # from a single context. Lock will be acquired on updates.
+            self._metrics_store.add_order(metadata)
+
         return metadata
 
     def get_order(self, order_uid: str) -> OrderMetadata | None:
@@ -228,6 +110,23 @@ class OrderTracker:
             List of all OrderMetadata instances
         """
         return list(self._orders.values())
+
+    def update_order_uid(self, old_uid: str, new_uid: str) -> None:
+        """
+        Replace a temporary UID with the real UID from API response.
+
+        Args:
+            old_uid: The temporary/pending UID
+            new_uid: The real UID from the orderbook API
+        """
+        if old_uid in self._orders:
+            order = self._orders.pop(old_uid)
+            order.order_uid = new_uid
+            self._orders[new_uid] = order
+
+            # Also update in metrics store if present
+            if self._metrics_store:
+                self._metrics_store.update_order_uid(old_uid, new_uid)
 
     def update_order_status(
         self,
@@ -259,17 +158,16 @@ class OrderTracker:
     async def poll_order_status(
         self,
         order_uid: str,
-        api_client: Any,  # Type would be the API client class
+        api_client: "InstrumentedOrderbookClient | Any",
     ) -> OrderStatus:
         """
-        Poll order status from the API.
+        Poll order status from the orderbook API.
 
-        Fetches the current order status from the orderbook API and maps it
-        to our internal OrderStatus enum.
+        Fetches current order state from the API and updates internal tracking.
 
         Args:
             order_uid: The order UID to poll
-            api_client: The API client to use for polling
+            api_client: The API client to use for polling (InstrumentedOrderbookClient)
 
         Returns:
             The current order status
@@ -278,52 +176,44 @@ class OrderTracker:
         if metadata is None:
             return OrderStatus.FAILED
 
-        # If no API client provided, return current status (dry-run mode)
-        if api_client is None:
-            return metadata.current_status
-
         try:
-            # Fetch order details from API
-            order_response = await api_client.get_order(order_uid)
-            api_status = order_response.get("status", "unknown").lower()
+            # Call the real API
+            response = await api_client.get_order(order_uid)
 
-            # Map API status to our OrderStatus enum
-            # CoW Protocol API statuses: open, fulfilled, cancelled, expired
-            status_map = {
-                "open": OrderStatus.OPEN,
-                "fulfilled": OrderStatus.FILLED,
-                "cancelled": OrderStatus.CANCELLED,
-                "expired": OrderStatus.EXPIRED,
-            }
+            # Extract status from response
+            api_status = response.get("status", "")
 
-            new_status = status_map.get(api_status, OrderStatus.OPEN)
+            # Map to our enum
+            new_status = map_api_status_to_order_status(api_status)
 
             # Extract filled amount if available
-            filled_amount = None
-            if "executedSellAmount" in order_response:
-                executed_sell = str(order_response["executedSellAmount"])
-                if int(executed_sell) > 0:
-                    filled_amount = executed_sell
+            filled_amount = response.get("executedSellAmount")
 
-            # Always update the status (not just when executedSellAmount > 0)
-            self.update_order_status(order_uid, new_status, filled_amount=filled_amount)
+            # Update our tracking
+            self.update_order_status(
+                order_uid,
+                new_status,
+                filled_amount=filled_amount,
+            )
 
-            # Log status changes for debugging
-            if new_status == OrderStatus.FILLED and filled_amount:
-                print(f"  ✓ Order {order_uid[:20]}... filled with amount {filled_amount}")
+            logger.debug(f"Order {order_uid[:10]}... status: {api_status} -> {new_status.value}")
 
             return new_status
 
+        except ValueError as e:
+            # Unknown status - log but don't fail
+            logger.warning(f"Unknown status for order {order_uid}: {e}")
+            return metadata.current_status
+
         except Exception as e:
-            # If API call fails (e.g., 404 for unknown order), keep current status
-            # This can happen for very new orders that haven't been indexed yet
-            print(f"  Warning: Failed to poll order {order_uid[:20]}...: {type(e).__name__}: {e}")
+            # API error - log and return current status
+            logger.warning(f"Failed to poll order {order_uid}: {e}")
             return metadata.current_status
 
     async def monitor_order(
         self,
         order_uid: str,
-        api_client: Any | None = None,
+        api_client: "InstrumentedOrderbookClient | Any | None" = None,
     ) -> OrderMetadata:
         """
         Monitor an order until it reaches a terminal state.
@@ -333,7 +223,7 @@ class OrderTracker:
 
         Args:
             order_uid: The order UID to monitor
-            api_client: Optional API client for polling (mock if None)
+            api_client: Optional API client for polling (required for real monitoring)
 
         Returns:
             The final OrderMetadata
@@ -346,12 +236,15 @@ class OrderTracker:
                 break
 
             if metadata.is_terminal_state():
+                logger.debug(
+                    f"Order {order_uid[:10]}... reached terminal state: "
+                    f"{metadata.current_status.value}"
+                )
                 break
 
-            # Poll status (mock implementation)
+            # Poll status if we have an API client
             if api_client is not None:
-                status = await self.poll_order_status(order_uid, api_client)
-                self.update_order_status(order_uid, status)
+                await self.poll_order_status(order_uid, api_client)
 
             await asyncio.sleep(self.poll_interval)
             attempts += 1
@@ -360,6 +253,13 @@ class OrderTracker:
         # The orchestrator's settlement wait period will continue monitoring
         # and will determine the final status
         metadata = self.get_order(order_uid)
+        if metadata and not metadata.is_terminal_state():
+            logger.warning(f"Order {order_uid[:10]}... timed out after {attempts} poll attempts")
+            self.update_order_status(
+                order_uid,
+                OrderStatus.FAILED,
+                error_message="Max poll attempts exceeded",
+            )
 
         return metadata or OrderMetadata(
             order_uid=order_uid,
@@ -367,7 +267,9 @@ class OrderTracker:
             creation_time=time.time(),
         )
 
-    def start_monitoring(self, order_uid: str, api_client: Any | None = None) -> asyncio.Task:
+    def start_monitoring(
+        self, order_uid: str, api_client: "InstrumentedOrderbookClient | Any | None" = None
+    ) -> asyncio.Task[OrderMetadata]:
         """
         Start monitoring an order in the background.
 

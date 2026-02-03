@@ -5,6 +5,9 @@ This module provides order generation, token pair management, validation,
 template-based order creation, and user simulation for load testing CoW Protocol.
 """
 
+# Re-export order metrics models from the metrics module for backward compatibility
+from cow_performance.metrics import OrderMetadata, OrderMetrics, OrderStatus
+
 from .abi_encoding import (
     decode_good_after_time_data,
     decode_stop_loss_data,
@@ -64,7 +67,7 @@ from .order_templates import (
     OrderTemplateRegistry,
     create_default_templates,
 )
-from .order_tracker import OrderMetadata, OrderMetrics, OrderStatus, OrderTracker
+from .order_tracker import OrderTracker
 from .order_validation import (
     OrderValidationError,
     assert_valid_order,
@@ -75,6 +78,11 @@ from .order_validation import (
     validate_signed_order,
 )
 from .safe_wallet import SafeWallet, deploy_safe_wallet
+from .status_mapping import (
+    COW_API_STATUS_MAPPING,
+    is_api_status_terminal,
+    map_api_status_to_order_status,
+)
 from .token_pair import (
     Token,
     TokenPair,
@@ -170,6 +178,9 @@ __all__ = [
     "OrderMetadata",
     "OrderMetrics",
     "OrderTracker",
+    "COW_API_STATUS_MAPPING",
+    "is_api_status_terminal",
+    "map_api_status_to_order_status",
     "TradingPattern",
     "TraderBehaviorConfig",
     "TraderSimulator",
