@@ -38,5 +38,6 @@ repos:
           - typer
           - rich
           - numpy>=2.0.0
+          - gitpython  # so mypy can resolve "import git" in baselines/git_info.py
         args: [--config-file=pyproject.toml]
         files: ^src/
