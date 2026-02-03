@@ -1,12 +1,19 @@
 # Claude Code Project Rules
 
+## Ticket & Task Management
+
+- **NEVER update Linear directly** - Do not use Linear MCP tools to update ticket unless explicitly asked with words like "update Linear" or "sync to Linear"
+- **Just "ticket" means the local file** - e.g., When asked to update a ticket, edit the file in `thoughts/tickets/`
+- **Update the index when adding files** - When creating new files in `thoughts/`, add entries to `thoughts/INDEX.md`
+
 ## Documentation
 
 - **The project can only have 1 README.md file** - All documentation must be consolidated in the root README.md file. Do not create separate README files in subdirectories.
 
 ## Code Quality
 
-- **Always run linting after completing a feature** - After implementing or modifying any feature, you MUST run the full lint workflow to ensure code quality:
+- **Run linting BEFORE each commit** - Run the full lint workflow on ALL of `src/` and `tests/` before EVERY commit, not just at the end of a feature:
+
   ```bash
   # 1. Format code
   poetry run black src/ tests/ || .venv/bin/black src/ tests/
