@@ -410,6 +410,6 @@ Remove/Move to other files:
 - Status: Todo
 - Priority: No priority
 - Assignee: jefferson@bleu.studio
-- Project: [cow-performance-testing-suite](https://linear.app/bleu-builders/project/cow-performance-testing-suite-76a5f7d55e4d). 
+- Project: [cow-performance-testing-suite](https://linear.app/bleu-builders/project/cow-performance-testing-suite-76a5f7d55e4d).
 - Created: 2026-01-27T15:16:32.157Z
 - Updated: 2026-01-27T19:39:15.755Z
