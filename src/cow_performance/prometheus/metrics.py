@@ -37,6 +37,10 @@ class MetricsRegistry:
         self._init_latency_metrics()
         self._init_throughput_metrics()
         self._init_test_metadata()
+        self._init_api_metrics()
+        self._init_resource_metrics()
+        self._init_trader_metrics()
+        self._init_comparison_metrics()
 
     def _init_order_metrics(self) -> None:
         """Initialize order-related counters and gauges."""
@@ -168,5 +172,99 @@ class MetricsRegistry:
             "cow_perf_test_progress_percent",
             "Test completion percentage (0-100)",
             ["scenario"],
+            registry=self.registry,
+        )
+
+    def _init_api_metrics(self) -> None:
+        """Initialize API performance metrics."""
+        self.api_requests_total = Counter(
+            "cow_perf_api_requests_total",
+            "Total API requests",
+            ["endpoint", "method", "status"],
+            registry=self.registry,
+        )
+        self.api_response_time = Histogram(
+            "cow_perf_api_response_time_seconds",
+            "API response time distribution",
+            ["endpoint", "method"],
+            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+            registry=self.registry,
+        )
+        self.api_errors_total = Counter(
+            "cow_perf_api_errors_total",
+            "Total API errors by type",
+            ["endpoint", "error_type"],
+            registry=self.registry,
+        )
+
+    def _init_resource_metrics(self) -> None:
+        """Initialize container resource metrics."""
+        self.container_cpu_percent = Gauge(
+            "cow_perf_container_cpu_percent",
+            "Container CPU usage percentage",
+            ["container"],
+            registry=self.registry,
+        )
+        self.container_memory_bytes = Gauge(
+            "cow_perf_container_memory_bytes",
+            "Container memory usage in bytes",
+            ["container"],
+            registry=self.registry,
+        )
+        self.container_network_rx_bytes = Gauge(
+            "cow_perf_container_network_rx_bytes",
+            "Container network bytes received",
+            ["container"],
+            registry=self.registry,
+        )
+        self.container_network_tx_bytes = Gauge(
+            "cow_perf_container_network_tx_bytes",
+            "Container network bytes transmitted",
+            ["container"],
+            registry=self.registry,
+        )
+
+    def _init_trader_metrics(self) -> None:
+        """Initialize per-trader metrics.
+
+        Note: Uses trader_index (0, 1, 2, ...) instead of full addresses
+        to manage label cardinality. Default tests have ~10 traders.
+        """
+        self.trader_orders_submitted = Counter(
+            "cow_perf_trader_orders_submitted",
+            "Orders submitted per trader",
+            ["trader_index"],
+            registry=self.registry,
+        )
+        self.trader_orders_filled = Counter(
+            "cow_perf_trader_orders_filled",
+            "Orders filled per trader",
+            ["trader_index"],
+            registry=self.registry,
+        )
+        self.traders_active = Gauge(
+            "cow_perf_traders_active",
+            "Count of currently active traders",
+            registry=self.registry,
+        )
+
+    def _init_comparison_metrics(self) -> None:
+        """Initialize baseline comparison metrics."""
+        self.baseline_comparison_percent = Gauge(
+            "cow_perf_baseline_comparison_percent",
+            "Percentage change from baseline (positive = increase)",
+            ["metric", "baseline_id"],
+            registry=self.registry,
+        )
+        self.regression_detected = Gauge(
+            "cow_perf_regression_detected",
+            "Count of detected regressions by severity",
+            ["severity"],
+            registry=self.registry,
+        )
+        self.regressions_total = Counter(
+            "cow_perf_regressions_total",
+            "Total regressions detected by severity",
+            ["severity"],
             registry=self.registry,
         )

@@ -12,7 +12,8 @@ from typing import TYPE_CHECKING
 from prometheus_client import CollectorRegistry, start_http_server
 
 from cow_performance import __version__
-from cow_performance.metrics.models import OrderMetadata, OrderStatus
+from cow_performance.comparison.models import ComparisonResult
+from cow_performance.metrics.models import APIMetrics, OrderMetadata, OrderStatus, ResourceSample
 from cow_performance.prometheus.metrics import MetricsRegistry
 
 if TYPE_CHECKING:
@@ -60,6 +61,11 @@ class PrometheusExporter:
         self._running = False
         self._store: MetricsStore | None = None
         self._active_orders: set[str] = set()
+
+        # Trader tracking (Phase 2)
+        self._trader_address_to_index: dict[str, str] = {}
+        self._active_traders: set[str] = set()  # Set of trader indices with active orders
+        self._orders_by_trader: dict[str, set[str]] = {}  # trader_index -> set of order_uids
 
     @property
     def registry(self) -> CollectorRegistry:
@@ -113,7 +119,10 @@ class PrometheusExporter:
         try:
             if metric_type == "order" and isinstance(metric, OrderMetadata):
                 self._update_order_metrics(metric)
-            # API and resource metrics will be handled in Phase 2
+            elif metric_type == "api" and isinstance(metric, APIMetrics):
+                self._update_api_metrics(metric)
+            elif metric_type == "resource":
+                self._update_resource_metrics(metric)
         except Exception as e:
             logger.warning("Error updating Prometheus metric: %s", e)
 
@@ -122,10 +131,21 @@ class PrometheusExporter:
         status = order.current_status
         scenario = self.scenario
 
+        # Get or assign trader index for per-trader tracking
+        trader_index = self._get_trader_index(order.owner)
+
         # Track active orders
         if status == OrderStatus.CREATED:
             self._metrics.orders_created.labels(scenario=scenario).inc()
             self._active_orders.add(order.order_uid)
+
+            # Update per-trader tracking
+            self._metrics.trader_orders_submitted.labels(trader_index=trader_index).inc()
+            if trader_index not in self._orders_by_trader:
+                self._orders_by_trader[trader_index] = set()
+            self._orders_by_trader[trader_index].add(order.order_uid)
+            self._active_traders.add(trader_index)
+            self._metrics.traders_active.set(len(self._active_traders))
 
         elif status == OrderStatus.SUBMITTED:
             self._metrics.orders_submitted.labels(scenario=scenario).inc()
@@ -145,6 +165,10 @@ class PrometheusExporter:
             self._metrics.orders_filled.labels(scenario=scenario).inc()
             self._active_orders.discard(order.order_uid)
 
+            # Update per-trader tracking
+            self._metrics.trader_orders_filled.labels(trader_index=trader_index).inc()
+            self._remove_order_from_trader(trader_index, order.order_uid)
+
             # Record settlement latency (acceptance to fill)
             latency = order.get_time_to_fill()
             if latency is not None:
@@ -158,17 +182,102 @@ class PrometheusExporter:
         elif status == OrderStatus.FAILED:
             self._metrics.orders_failed.labels(scenario=scenario).inc()
             self._active_orders.discard(order.order_uid)
+            self._remove_order_from_trader(trader_index, order.order_uid)
 
         elif status == OrderStatus.EXPIRED:
             self._metrics.orders_expired.labels(scenario=scenario).inc()
             self._active_orders.discard(order.order_uid)
+            self._remove_order_from_trader(trader_index, order.order_uid)
 
         elif status == OrderStatus.CANCELLED:
             # Cancelled orders are tracked but not counted as failed
             self._active_orders.discard(order.order_uid)
+            self._remove_order_from_trader(trader_index, order.order_uid)
 
         # Update active orders gauge
         self._metrics.orders_active.labels(scenario=scenario).set(len(self._active_orders))
+
+    def _get_trader_index(self, owner_address: str) -> str:
+        """Get or assign a trader index for an address.
+
+        Uses sequential indices (0, 1, 2, ...) to manage label cardinality.
+        """
+        if owner_address not in self._trader_address_to_index:
+            index = len(self._trader_address_to_index)
+            self._trader_address_to_index[owner_address] = str(index)
+        return self._trader_address_to_index[owner_address]
+
+    def _remove_order_from_trader(self, trader_index: str, order_uid: str) -> None:
+        """Remove an order from trader tracking and update active traders."""
+        if trader_index in self._orders_by_trader:
+            self._orders_by_trader[trader_index].discard(order_uid)
+            # If trader has no more active orders, remove from active set
+            if not self._orders_by_trader[trader_index]:
+                self._active_traders.discard(trader_index)
+                self._metrics.traders_active.set(len(self._active_traders))
+
+    def _update_api_metrics(self, api_metric: APIMetrics) -> None:
+        """Update API-related Prometheus metrics from APIMetrics."""
+        endpoint = api_metric.endpoint
+        method = api_metric.method
+        status = str(api_metric.status_code)
+
+        # Increment request counter
+        self._metrics.api_requests_total.labels(
+            endpoint=endpoint,
+            method=method,
+            status=status,
+        ).inc()
+
+        # Record response time
+        self._metrics.api_response_time.labels(
+            endpoint=endpoint,
+            method=method,
+        ).observe(api_metric.duration)
+
+        # Track errors (non-2xx responses)
+        if not api_metric.is_success:
+            error_type = self._classify_api_error(api_metric)
+            self._metrics.api_errors_total.labels(
+                endpoint=endpoint,
+                error_type=error_type,
+            ).inc()
+
+    def _classify_api_error(self, api_metric: APIMetrics) -> str:
+        """Classify API error by type."""
+        status = api_metric.status_code
+        if 400 <= status < 500:
+            return "client_error"
+        elif 500 <= status < 600:
+            return "server_error"
+        elif api_metric.error_message:
+            if "timeout" in api_metric.error_message.lower():
+                return "timeout"
+            elif "connection" in api_metric.error_message.lower():
+                return "connection_error"
+        return "unknown"
+
+    def _update_resource_metrics(self, metric: object) -> None:
+        """Update resource-related Prometheus metrics.
+
+        Note: MetricsStore emits (container_name, sample) tuple for resource metrics.
+        """
+        # Handle tuple format from MetricsStore.add_resource_sample callback
+        if isinstance(metric, tuple) and len(metric) == 2:
+            container_name, sample = metric
+            if isinstance(sample, ResourceSample):
+                self._metrics.container_cpu_percent.labels(container=container_name).set(
+                    sample.cpu_percent
+                )
+                self._metrics.container_memory_bytes.labels(container=container_name).set(
+                    sample.memory_bytes
+                )
+                self._metrics.container_network_rx_bytes.labels(container=container_name).set(
+                    sample.network_rx_bytes
+                )
+                self._metrics.container_network_tx_bytes.labels(container=container_name).set(
+                    sample.network_tx_bytes
+                )
 
     # --- Manual Recording Methods (for direct updates) ---
 
@@ -260,3 +369,115 @@ class PrometheusExporter:
     def is_running(self) -> bool:
         """Check if exporter is running."""
         return self._running
+
+    # --- API Recording Methods (Phase 2) ---
+
+    def record_api_request(
+        self,
+        endpoint: str,
+        method: str,
+        status_code: int,
+        duration_seconds: float,
+    ) -> None:
+        """Record an API request."""
+        self._metrics.api_requests_total.labels(
+            endpoint=endpoint,
+            method=method,
+            status=str(status_code),
+        ).inc()
+        self._metrics.api_response_time.labels(
+            endpoint=endpoint,
+            method=method,
+        ).observe(duration_seconds)
+
+    def record_api_error(self, endpoint: str, error_type: str) -> None:
+        """Record an API error."""
+        self._metrics.api_errors_total.labels(
+            endpoint=endpoint,
+            error_type=error_type,
+        ).inc()
+
+    # --- Resource Recording Methods (Phase 2) ---
+
+    def update_container_resources(
+        self,
+        container: str,
+        cpu_percent: float,
+        memory_bytes: int,
+        network_rx_bytes: int = 0,
+        network_tx_bytes: int = 0,
+    ) -> None:
+        """Update resource metrics for a container."""
+        self._metrics.container_cpu_percent.labels(container=container).set(cpu_percent)
+        self._metrics.container_memory_bytes.labels(container=container).set(memory_bytes)
+        self._metrics.container_network_rx_bytes.labels(container=container).set(network_rx_bytes)
+        self._metrics.container_network_tx_bytes.labels(container=container).set(network_tx_bytes)
+
+    # --- Trader Recording Methods (Phase 2) ---
+
+    def record_trader_order_submitted(self, trader_index: int) -> None:
+        """Record an order submission for a trader."""
+        self._metrics.trader_orders_submitted.labels(trader_index=str(trader_index)).inc()
+
+    def record_trader_order_filled(self, trader_index: int) -> None:
+        """Record an order fill for a trader."""
+        self._metrics.trader_orders_filled.labels(trader_index=str(trader_index)).inc()
+
+    def set_active_traders(self, count: int) -> None:
+        """Set the count of active traders."""
+        self._metrics.traders_active.set(count)
+
+    # --- Baseline Comparison Methods (Phase 2) ---
+
+    def record_comparison_result(self, result: ComparisonResult) -> None:
+        """Record metrics from a baseline comparison result.
+
+        This populates comparison metrics from a ComparisonResult object,
+        typically called after running a baseline comparison.
+        """
+        baseline_id = result.baseline_id
+
+        # Record percentage changes for each metric comparison
+        for metric_name, comparison in result.metric_comparisons.items():
+            self._metrics.baseline_comparison_percent.labels(
+                metric=metric_name,
+                baseline_id=baseline_id,
+            ).set(
+                comparison.percent_change * 100
+            )  # Convert to percentage
+
+        # Record regression counts by severity
+        self._metrics.regression_detected.labels(severity="critical").set(result.critical_count)
+        self._metrics.regression_detected.labels(severity="major").set(result.major_count)
+        self._metrics.regression_detected.labels(severity="minor").set(result.minor_count)
+
+        # Increment total regression counters
+        for _ in range(result.critical_count):
+            self._metrics.regressions_total.labels(severity="critical").inc()
+        for _ in range(result.major_count):
+            self._metrics.regressions_total.labels(severity="major").inc()
+        for _ in range(result.minor_count):
+            self._metrics.regressions_total.labels(severity="minor").inc()
+
+    def set_baseline_comparison(
+        self,
+        metric_name: str,
+        baseline_id: str,
+        percent_change: float,
+    ) -> None:
+        """Set a single baseline comparison metric."""
+        self._metrics.baseline_comparison_percent.labels(
+            metric=metric_name,
+            baseline_id=baseline_id,
+        ).set(percent_change)
+
+    def set_regression_counts(
+        self,
+        critical: int = 0,
+        major: int = 0,
+        minor: int = 0,
+    ) -> None:
+        """Set regression detection counts."""
+        self._metrics.regression_detected.labels(severity="critical").set(critical)
+        self._metrics.regression_detected.labels(severity="major").set(major)
+        self._metrics.regression_detected.labels(severity="minor").set(minor)
