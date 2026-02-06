@@ -565,6 +565,75 @@ Increase Docker memory limit to at least 8GB:
 
 ---
 
+## Report Commands
+
+Generate performance reports from saved baselines with comprehensive metrics analysis.
+
+### Generate Report
+
+Generate a performance report from a saved baseline:
+
+```bash
+cow-perf report generate <baseline-name> [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-f, --format` | Output format: text, markdown, json (default: text) |
+| `-o, --output` | Output file path |
+| `-c, --compare` | Baseline to compare against |
+| `--export-csv` | Directory for CSV exports |
+| `--no-color` | Disable colored output |
+| `--baselines-dir` | Custom baselines directory |
+
+**Examples:**
+
+```bash
+# Text report to console
+cow-perf report generate my-baseline
+
+# Markdown report for GitHub
+cow-perf report generate my-baseline -f markdown -o report.md
+
+# JSON report for automation
+cow-perf report generate my-baseline -f json -o report.json
+
+# Compare against another baseline
+cow-perf report generate current-run --compare previous-baseline
+
+# Export metrics as CSV
+cow-perf report generate my-baseline --export-csv ./csv/
+```
+
+### List Report Formats
+
+Show available report formats:
+
+```bash
+cow-perf report list-formats
+```
+
+### Report Contents
+
+Reports include:
+
+- **Executive Summary**: Verdict (SUCCESS/WARNING/FAILURE), key metrics, findings
+- **Detailed Metrics**: Order lifecycle latencies (P50-P99), API response times, resource utilization
+- **Comparison Results**: Regressions and improvements vs baseline (when comparing)
+- **Recommendations**: Actionable suggestions based on metric analysis
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success / No issues |
+| 1 | Error (invalid arguments, missing files) |
+| 2 | Performance failure/regression detected |
+
+---
+
 ## Example Workflows
 
 ### Setup New Project
