@@ -51,9 +51,11 @@ docker compose logs -f     # View logs
 | Contributing | `CONTRIBUTING.md` |
 | Utility scripts | `hack/CLAUDE.md` |
 | Project scope and milestones | `thoughts/context/grant-proposal.md` |
+| **Thoughts index (start here)** | `thoughts/INDEX.md` |
 
 ## Working Conventions
 
+- **Check `thoughts/INDEX.md` first** before starting work - it catalogs all existing plans, research, and tickets
 - Save analysis, plans, and reasoning to `thoughts/` directory
 - Follow existing code patterns - the codebase is the source of truth for style
 - Use Pydantic for data validation and configuration

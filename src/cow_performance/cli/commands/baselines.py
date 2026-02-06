@@ -36,13 +36,15 @@ def save_baseline_command(
     """
     console = Console()
 
-    console.print(
-        "[yellow]Warning:[/yellow] Saving from results file is deprecated. "
-        "Use 'cow-perf run --save-baseline <name>' to save baselines directly from test runs."
-    )
-
     console.print("[bold red]Error:[/bold red] This command is no longer supported.")
-    console.print("Please use [cyan]cow-perf run --save-baseline <name>[/cyan] to save baselines.")
+    console.print(
+        "\nBaselines should be saved programmatically using [cyan]BaselineManager.save()[/cyan]."
+    )
+    console.print("\nExample:")
+    console.print("  [dim]from cow_performance.baselines import BaselineManager[/dim]")
+    console.print("  [dim]manager = BaselineManager()[/dim]")
+    console.print("  [dim]baseline = manager.save('my-baseline', metrics_store)[/dim]")
+    console.print("\nSee [cyan]docs/architecture.md[/cyan] for the full programmatic workflow.")
     raise SystemExit(1)
 
 
@@ -199,8 +201,10 @@ def list_baselines_command(
         if tags or branch:
             console.print("[dim]Try removing filters to see all baselines.[/dim]")
         else:
-            console.print("\n[dim]Save a baseline with:[/dim]")
-            console.print("  cow-perf run --save-baseline my-baseline")
+            console.print(
+                "\n[dim]Save baselines programmatically with BaselineManager.save()[/dim]"
+            )
+            console.print("[dim]See docs/architecture.md for usage examples.[/dim]")
         return
 
     # Display baselines table

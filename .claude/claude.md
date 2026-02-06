@@ -1,5 +1,9 @@
 # Claude Code Project Rules
 
+## Before Starting Work
+
+- **Check `thoughts/INDEX.md` first** - This index catalogs all existing plans, research, tickets, and prompts. Review it to avoid duplicating work that's already been done.
+
 ## Ticket & Task Management
 
 - **NEVER update Linear directly** - Do not use Linear MCP tools to update ticket unless explicitly asked with words like "update Linear" or "sync to Linear"

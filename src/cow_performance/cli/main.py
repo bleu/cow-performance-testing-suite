@@ -14,6 +14,7 @@ from .commands.baselines import (
     save_baseline_command,
     show_baseline_command,
 )
+from .commands.report import app as report_app
 from .commands.run import run_command
 from .commands.scenarios import (
     create_scenario_template,
@@ -27,6 +28,9 @@ app = typer.Typer(
     help="CoW Protocol Performance Testing Suite",
     add_completion=False,
 )
+
+# Register sub-commands
+app.add_typer(report_app, name="report")
 
 console = Console()
 
