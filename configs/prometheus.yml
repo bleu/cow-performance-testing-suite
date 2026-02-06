@@ -58,6 +58,18 @@ scrape_configs:
           service: "baseline"
           component: "solver"
 
+  # CoW Performance Test Suite metrics
+  # Note: Only active during test runs with --prometheus-port flag
+  - job_name: "cow-performance-test"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9091"]
+        labels:
+          service: "performance-test"
+          component: "cow-perf"
+    # Fail gracefully if exporter not running
+    scrape_timeout: 5s
+
 # Optional: Add alerting rules
 # rule_files:
 #   - "/etc/prometheus/alerts/*.yml"

@@ -77,6 +77,11 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Perform dry run without submitting orders"
     ),
+    prometheus_port: Optional[int] = typer.Option(
+        None,
+        "--prometheus-port",
+        help="Port for Prometheus metrics exporter (enables exporter when set)",
+    ),
 ) -> None:
     """Run a performance test.
 
@@ -114,6 +119,7 @@ def run(
             output_file=output_file,
             verbose=verbose,
             dry_run=dry_run,
+            prometheus_port=prometheus_port,
         )
 
     except FileNotFoundError as e:
