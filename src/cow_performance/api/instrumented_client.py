@@ -5,9 +5,12 @@ Wraps OrderbookClient to capture request timing, status codes, and payload sizes
 for performance analysis.
 """
 
+import asyncio
 import json
 import time
 from typing import Any
+
+import aiohttp
 
 from cow_performance.api.orderbook_client import OrderbookClient
 from cow_performance.metrics import APIMetrics, MetricsStore
@@ -247,6 +250,43 @@ class InstrumentedOrderbookClient:
             )
             raise
 
+    async def upload_app_data_with_retry(
+        self,
+        app_data_hash: str,
+        app_data_doc: str | dict[str, Any],
+        max_retries: int = 3,
+    ) -> dict[str, Any]:
+        """Upload appData with automatic retry on failure (instrumented).
+
+        Args:
+            app_data_hash: 32-byte hash of appData document
+            app_data_doc: Full appData JSON document
+            max_retries: Maximum retry attempts
+
+        Returns:
+            Response from orderbook
+        """
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                return await self.upload_app_data(app_data_hash, app_data_doc)
+            except aiohttp.ClientResponseError as e:
+                last_error = e
+                if e.status == 409:
+                    return {}
+                if e.status not in (500, 502, 503, 504):
+                    raise
+                if attempt < max_retries - 1:
+                    wait_time = 2**attempt
+                    print(
+                        f"AppData upload failed (attempt {attempt + 1}), "
+                        f"retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+        if last_error:
+            raise last_error
+        return {}
+
     async def get_version(self) -> dict[str, Any]:
         """
         Get API version with timing instrumentation.
@@ -281,6 +321,10 @@ class InstrumentedOrderbookClient:
                 error_message=str(e),
             )
             raise
+
+    async def get_open_order_count(self, owner: str) -> int:
+        """Get count of open orders for an account (delegates to underlying client)."""
+        return await self._client.get_open_order_count(owner)
 
     async def check_health(self) -> bool:
         """
