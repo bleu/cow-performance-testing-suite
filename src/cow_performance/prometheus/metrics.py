@@ -211,6 +211,12 @@ class MetricsRegistry:
             ["container"],
             registry=self.registry,
         )
+        self.container_memory_percent = Gauge(
+            "cow_perf_container_memory_percent",
+            "Container memory usage as percentage of limit (0-100)",
+            ["container"],
+            registry=self.registry,
+        )
         self.container_network_rx_bytes = Gauge(
             "cow_perf_container_network_rx_bytes",
             "Container network bytes received",
