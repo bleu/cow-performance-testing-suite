@@ -122,6 +122,7 @@ Detailed implementation approaches for tickets. Read these before implementing t
 | [2026-02-02-cow-588-baseline-snapshot-system.md](plans/2026-02-02-cow-588-baseline-snapshot-system.md) | COW-588 | ✅ Complete | BaselineManager, git-info, UUID-index, serialization |
 | [2026-02-03-cow-589-comparison-engine.md](plans/2026-02-03-cow-589-comparison-engine.md) | COW-589 | ✅ Complete | ComparisonEngine, regression, statistics, p-value, Cohen's-d |
 | [2026-02-03-cow-590-automated-reporting.md](plans/2026-02-03-cow-590-automated-reporting.md) | COW-590 | ✅ Complete | ReportGenerator, formatters, CSV, recommendations, CLI |
+| [2026-02-13-cow-598-alerting-rules.md](plans/2026-02-13-cow-598-alerting-rules.md) | COW-598 | 🔲 Ready | Prometheus alerts, alerting rules, thresholds, Grafana annotations |
 
 ---
 
@@ -227,6 +228,7 @@ tickets/COW-593-grafana-dashboards.md
 ### Alerting Rules (COW-598) — M3
 ```
 tickets/COW-598-alerting-rules.md
+└── plans/2026-02-13-cow-598-alerting-rules.md  (execution plan)
 ```
 
 ---
