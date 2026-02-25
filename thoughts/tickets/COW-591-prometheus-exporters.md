@@ -463,3 +463,78 @@ services:
 * Depends on: m2-issue-06-metrics-collection-framework
 * Blocks: m3-issue-11-grafana-dashboards
 * Related: m5-issue-16-fork-mode-integration (Prometheus in docker-compose)
+
+---
+
+## Planning Notes (M3 Planning — 2026-02-05)
+
+### Current State Analysis
+
+**What already exists:**
+
+1. **Basic Prometheus text output** (`cli/output.py`):
+   - `format_metrics_prometheus_text()` generates static text exposition format
+   - Only ~10 basic metrics (all gauges): `cow_perf_orders_total`, `cow_perf_orders_per_second`, `cow_perf_avg_order_latency_ms`, etc.
+   - **Limitation**: One-shot export at test end, not a real-time scraping endpoint
+
+2. **Rich metrics infrastructure** (from M2):
+   - `MetricsStore` - Thread-safe storage with callbacks (`metrics/store.py`)
+   - `MetricsEventStream` - Real-time event streaming (`metrics/streaming.py`)
+   - `PercentileStats`, `OrderAggregateMetrics`, `APIAggregateMetrics`, `ResourceAggregateMetrics` (`metrics/aggregator.py`)
+   - Detailed `OrderMetadata` with 6+ timestamps for lifecycle tracking (`metrics/models.py`)
+
+3. **Docker infrastructure** (`docker-compose.yml`):
+   - Prometheus service on port 9090 with `profile: monitoring`
+   - `configs/prometheus.yml` already scrapes CoW services (orderbook:9586, autopilot:9589, driver, solver)
+   - Grafana service on port 3000 with provisioned datasource
+
+### Adjustments & Clarifications
+
+1. **Port conflict**: The ticket proposes port 9090, but Prometheus itself uses 9090. **Use port 9091** for the performance test exporter to avoid conflicts.
+
+2. **Integration approach**: Hook into `MetricsEventStream` (already has callback infrastructure) rather than polling `MetricsStore`. This provides real-time metric updates.
+
+3. **Metric registration timing**: Metrics should be created at exporter initialization, updated via callbacks from `MetricsEventStream`, and served via HTTP.
+
+4. **PoC dashboards reference**: The ticket references `latency_dashboard.json` and `main_dashboard.json` from a PoC. The PoC is available via PR #17 on bleu/cowprotocol-services. See [thoughts/research/poc-evaluation.md](../research/poc-evaluation.md) for complete PoC analysis and [thoughts/tasks/COW-591-implementation-phases.md](../tasks/COW-591-implementation-phases.md) for how the PoC metrics inform our design. The compatibility section means we should:
+   - Use consistent naming conventions (`cow_perf_` prefix)
+   - Use similar histogram bucket ranges where applicable
+   - Support `scenario` and `test_run_id` labels for filtering
+
+5. **Implementation phases** (full scope, ordered by complexity):
+   - **Phase 1** (implement first): Order counters, latency histograms, throughput gauges, test info — these provide core visibility
+   - **Phase 2** (implement second): Per-trader metrics, API metrics, resource metrics, baseline comparison metrics — these complete the deliverable
+
+   **Note**: All metrics listed in this ticket are grant deliverables. The phasing is for implementation order only, not scope reduction. See `thoughts/tasks/COW-591-implementation-phases.md` for the detailed breakdown.
+
+### Dependencies
+
+- **Add to pyproject.toml**: `prometheus-client = "^0.20.0"`
+
+### Recommended Implementation Order
+
+1. `src/cow_performance/prometheus/__init__.py` - Module setup
+2. `src/cow_performance/prometheus/exporter.py` - `PrometheusExporter` class with HTTP server
+3. `src/cow_performance/prometheus/metrics.py` - Metric definitions (Counter, Histogram, Gauge, Info)
+4. Integration with `MetricsEventStream` via callbacks
+5. CLI flag `--prometheus-port` to enable exporter during test runs
+6. Update `configs/prometheus.yml` to scrape the new exporter
+
+### Acceptance Criteria (Full Scope)
+
+All metrics listed in this ticket are grant deliverables. Implementation order:
+
+**Phase 1** (implement first):
+- [ ] `/metrics` endpoint accessible during test runs
+- [ ] Core order metrics (counters for created/submitted/filled/failed/expired)
+- [ ] Latency histograms with appropriate buckets (submission, orderbook, settlement, lifecycle)
+- [ ] Throughput gauges (orders_per_second, target_rate, actual_rate)
+- [ ] Test metadata info metric
+
+**Phase 2** (implement after Phase 1):
+- [ ] Per-trader metrics (with cardinality management - see notes in `COW-591-implementation-phases.md`)
+- [ ] API performance metrics (requests_total, response_time, errors by endpoint)
+- [ ] Resource metrics (CPU, memory, network per container)
+- [ ] Baseline comparison metrics (comparison_percent, regression_detected)
+
+**Note on cardinality**: Per-trader metrics should use bounded label values or sampling to avoid cardinality explosion. Document the approach in implementation.

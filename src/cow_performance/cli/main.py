@@ -80,7 +80,7 @@ def run(
     prometheus_port: Optional[int] = typer.Option(
         None,
         "--prometheus-port",
-        help="Port for Prometheus metrics exporter (enables exporter when set)",
+        help="Port for Prometheus metrics exporter (default: 9091 from config, use 0 to disable)",
     ),
 ) -> None:
     """Run a performance test.
@@ -108,6 +108,14 @@ def run(
         # Load configuration
         cfg = load_config(Path(config_file) if config_file else None)
 
+        # Use CLI prometheus_port override, or config value (default 9091)
+        # A value of 0 disables the exporter
+        effective_prometheus_port = (
+            prometheus_port if prometheus_port is not None else cfg.prometheus_port
+        )
+        if effective_prometheus_port == 0:
+            effective_prometheus_port = None
+
         # Run the test
         run_command(
             config=cfg,
@@ -119,7 +127,7 @@ def run(
             output_file=output_file,
             verbose=verbose,
             dry_run=dry_run,
-            prometheus_port=prometheus_port,
+            prometheus_port=effective_prometheus_port,
         )
 
     except FileNotFoundError as e:
