@@ -272,6 +272,9 @@ class PrometheusExporter:
                 self._metrics.container_memory_bytes.labels(container=container_name).set(
                     sample.memory_bytes
                 )
+                self._metrics.container_memory_percent.labels(container=container_name).set(
+                    sample.memory_percent
+                )
                 self._metrics.container_network_rx_bytes.labels(container=container_name).set(
                     sample.network_rx_bytes
                 )
@@ -406,10 +409,13 @@ class PrometheusExporter:
         memory_bytes: int,
         network_rx_bytes: int = 0,
         network_tx_bytes: int = 0,
+        memory_percent: float | None = None,
     ) -> None:
         """Update resource metrics for a container."""
         self._metrics.container_cpu_percent.labels(container=container).set(cpu_percent)
         self._metrics.container_memory_bytes.labels(container=container).set(memory_bytes)
+        if memory_percent is not None:
+            self._metrics.container_memory_percent.labels(container=container).set(memory_percent)
         self._metrics.container_network_rx_bytes.labels(container=container).set(network_rx_bytes)
         self._metrics.container_network_tx_bytes.labels(container=container).set(network_tx_bytes)
 

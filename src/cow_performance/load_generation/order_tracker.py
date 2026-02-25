@@ -254,7 +254,30 @@ class OrderTracker:
         # and will determine the final status
         metadata = self.get_order(order_uid)
         if metadata and not metadata.is_terminal_state():
-            logger.warning(f"Order {order_uid[:10]}... timed out after {attempts} poll attempts")
+            # Calculate detailed timeout information
+            age_seconds = time.time() - metadata.creation_time
+            status = metadata.current_status.value
+
+            # Build lifecycle progress string
+            lifecycle_stages = []
+            if metadata.submission_time:
+                lifecycle_stages.append("submitted")
+            if metadata.acceptance_time:
+                lifecycle_stages.append("accepted")
+            if metadata.first_fill_time:
+                lifecycle_stages.append("partially_filled")
+
+            lifecycle_str = " → ".join(lifecycle_stages) if lifecycle_stages else "created only"
+
+            # Token pair info (truncate addresses for readability)
+            sell_token = metadata.sell_token[-8:] if metadata.sell_token else "unknown"
+            buy_token = metadata.buy_token[-8:] if metadata.buy_token else "unknown"
+
+            logger.warning(
+                f"Order {order_uid[:10]}... timed out after {attempts} poll attempts "
+                f"(status={status}, age={age_seconds:.1f}s, "
+                f"pair={sell_token}→{buy_token}, lifecycle=[{lifecycle_str}])"
+            )
 
         return metadata or OrderMetadata(
             order_uid=order_uid,

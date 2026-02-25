@@ -1,12 +1,86 @@
 {
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "expr": "ALERTS{alertstate=\"firing\", component=\"cow-performance-testing\"}",
+        "iconColor": "red",
+        "name": "Firing Alerts",
+        "tagKeys": "alertname,severity",
+        "titleFormat": "{{ alertname }}"
+      }
+    ]
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "API",
+      "tooltip": "Go to API Performance Dashboard",
+      "type": "link",
+      "url": "/d/cow-perf-api"
+    },
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Resources",
+      "tooltip": "Go to Resources Dashboard",
+      "type": "link",
+      "url": "/d/cow-perf-resources"
+    },
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Comparison",
+      "tooltip": "Go to Comparison Dashboard",
+      "type": "link",
+      "url": "/d/cow-perf-comparison"
+    },
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Traders",
+      "tooltip": "Go to Trader Activity Dashboard",
+      "type": "link",
+      "url": "/d/cow-perf-traders"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
