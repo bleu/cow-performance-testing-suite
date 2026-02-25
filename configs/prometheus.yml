@@ -70,11 +70,12 @@ scrape_configs:
     # Fail gracefully if exporter not running
     scrape_timeout: 5s
 
-# Optional: Add alerting rules
-# rule_files:
-#   - "/etc/prometheus/alerts/*.yml"
+# Alert rule files
+rule_files:
+  - "/etc/prometheus/alerts/*.yml"
 
-# Optional: Configure Alertmanager
+# Note: Alertmanager not configured - alerts visible in Prometheus UI and Grafana only
+# To enable Alertmanager notifications, uncomment below and add alertmanager service:
 # alerting:
 #   alertmanagers:
 #     - static_configs:

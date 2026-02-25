@@ -448,3 +448,109 @@ Orders are taking longer than expected to be accepted by the API.
 
 * Depends on: m3-issue-11-prometheus-exporters, m3-issue-12-grafana-dashboards
 * Related: m5-issue-19-comprehensive-documentation (alert documentation)
+
+---
+
+## Planning Notes (M3 Planning — 2026-02-05)
+
+> **STATUS: DEFERRED** — This ticket is out of scope for the current M3 planning cycle.
+> COW-598 will be refined and implemented after COW-591 (Prometheus Exporters) and COW-593 (Grafana Dashboards) are complete.
+
+### Deferral Rationale
+
+COW-598 (Alerting Rules) feels out of context compared to COW-591 and COW-593 and the work done so far. The manager/user has requested that this ticket be set aside for now and refined in a later planning step.
+
+**What this means**:
+- No implementation work on COW-598 during the current M3 phase
+- COW-591 and COW-593 take priority
+- After COW-591 and COW-593 are complete, return to COW-598 for detailed planning
+
+### Preserved Analysis (For Future Reference)
+
+The following analysis was conducted during initial M3 planning and is preserved for when COW-598 is revisited:
+
+#### Current State
+
+1. **Prometheus config** (`configs/prometheus.yml`):
+   - Rule file loading is NOT configured (no `rule_files:` section)
+   - Alertmanager is NOT configured (no `alerting:` section)
+   - Only scrape configs for CoW services
+
+2. **No alerting infrastructure** - Will be built from scratch.
+
+3. **Docker Compose** - No Alertmanager service defined.
+
+#### Future Implementation Considerations
+
+1. **Alertmanager is optional**: For a local performance testing tool:
+   - **Option A**: Prometheus alerting rules + Grafana alert visualization (simpler)
+   - **Option B**: Full Alertmanager with notification channels (more complex)
+   - **Recommendation**: Start with Option A.
+
+2. **Core alerts to prioritize** (when implementing):
+
+| Alert | Severity | Condition |
+|-------|----------|-----------|
+| HighSubmissionLatency | Warning | P95 > 5s for 2m |
+| CriticalSubmissionLatency | Critical | P95 > 10s for 1m |
+| HighErrorRate | Critical | Error rate > 5% for 1m |
+| LowThroughput | Warning | Actual < 80% target for 2m |
+| TestStalled | Critical | No orders for 1m during active test |
+
+3. **Dependencies** (will be satisfied before COW-598 starts):
+   - Requires COW-591 complete: Alerts depend on Prometheus metrics
+   - Requires COW-593 dashboards: Alerts can be visualized in dashboards
+
+### Next Steps
+
+When COW-591 and COW-593 are complete:
+1. Revisit this ticket's Planning Notes
+2. Refine alert thresholds based on actual metric behavior observed during COW-591/COW-593 testing
+3. Determine if full scope (15+ alerts) or reduced scope (5-7 alerts) is appropriate
+4. Update validation and grant-alignment documents accordingly
+
+---
+
+## Implementation Notes (2026-02-13)
+
+### Implemented Scope
+
+**Approach**: Option A (Prometheus alerting rules + Grafana visualization)
+**Alert Count**: 7 core alerts (reduced from 15+ in original scope)
+
+### Alerts Implemented
+
+| Alert | Severity | Condition | Duration |
+|-------|----------|-----------|----------|
+| HighSubmissionLatency | Warning | P95 > 5s | 2m |
+| CriticalSubmissionLatency | Critical | P95 > 10s | 1m |
+| HighErrorRate | Critical | Error rate > 5% | 1m |
+| LowThroughput | Warning | Actual < 80% target | 2m |
+| TestStalled | Critical | No orders for 1m during active test | 1m |
+| HighCPUUsage | Warning | CPU > 80% | 5m |
+| CriticalMemoryUsage | Critical | Memory > 95% | 2m |
+
+### What Was NOT Implemented
+
+- Alertmanager (no Slack/email/webhook notifications)
+- Settlement latency alerts
+- API error spike alerts
+- Regression alerts
+- Alert testing framework
+- Configurable thresholds (see COW-617)
+
+### Threshold Configuration
+
+All thresholds are hardcoded in `configs/prometheus/alerts/performance-testing.yml`.
+Parameters are documented at the top of the file for easy modification.
+
+**TODO(COW-617)**: Move thresholds to configurable TOML/env variables.
+
+### Files Created/Modified
+
+- `configs/prometheus/alerts/performance-testing.yml` (NEW)
+- `configs/prometheus.yml` (modified: enabled rule_files)
+- `docker-compose.yml` (modified: added alerts volume mount)
+- `configs/dashboards/performance.json` (modified: added alert annotations)
+- `src/cow_performance/prometheus/metrics.py` (modified: added memory_percent gauge)
+- `src/cow_performance/prometheus/exporter.py` (modified: export memory_percent metric)
