@@ -406,3 +406,120 @@ grafana/
 * Related: m1-issue-02-fork-mode-environment-setup (Grafana configured in docker-compose)
 * Related: m5-issue-19-comprehensive-documentation (dashboard usage guide)
 * Related: Existing PoC dashboards in `/playground/performance-test-suite/`
+
+---
+
+## Planning Notes (M3 Planning — 2026-02-05)
+
+### Current State Analysis
+
+**What already exists:**
+
+1. **Grafana service configured** (`docker-compose.yml`):
+   - Grafana on port 3000 with `profile: monitoring`
+   - Datasource provisioning: `configs/grafana-datasource.yml` (points to Prometheus)
+   - Dashboard provisioning: `configs/grafana-dashboard.yml` (configured but **no dashboards exist**)
+
+2. **No dashboard JSON files** - The `configs/` directory has provisioning config but no actual dashboard files.
+
+3. **PoC dashboards don't exist locally** - The ticket references `latency_dashboard.json` and `main_dashboard.json` from CoW Protocol's monitoring. These are **external references** for design inspiration, not files to copy.
+
+### Adjustments & Clarifications
+
+1. **PoC Reference Available**: The PoC dashboards ARE available as a reference via **PR #17 on bleu/cowprotocol-services**. The PR adds ~4k lines, so direct file reads aren't practical. Use targeted searches:
+   - Search for metric names (e.g., `cow_perf_`, `gp_v2_autopilot_runloop`, `driver_auction_preprocessing`)
+   - Search for panel types (heatmap, timeseries, stat)
+   - Reference dashboard patterns (heatmap color schemes, bucket configurations)
+
+   **Access strategy**: See [thoughts/research/poc-evaluation.md](../research/poc-evaluation.md) for complete PoC analysis (metrics, dashboards, architecture). For additional reference patterns, see [thoughts/tasks/COW-593-poc-reference.md](../tasks/COW-593-poc-reference.md).
+
+2. **Full dashboard scope maintained**: All dashboards listed in this ticket are grant deliverables:
+   - Performance Testing Overview
+   - API Performance
+   - Resource Utilization
+   - Comparison Dashboard
+   - Trader Activity
+
+   **Implementation split** (for manageable delivery):
+   - **Task 1 (COW-593)**: Essential dashboards (~2 points) — Overview, API Performance
+   - **Task 2 (local)**: Remaining dashboards (~3 points) — Resources, Comparison, Trader Activity
+
+   See `thoughts/tasks/COW-593-remaining-dashboards.md` for Task 2 details.
+
+3. **Directory structure** (maintains original plan):
+   ```
+   configs/
+   ├── grafana-datasource.yml     # exists
+   ├── grafana-dashboard.yml      # exists, update path
+   └── dashboards/
+       ├── performance-overview.json   # Task 1
+       ├── api-performance.json        # Task 1
+       ├── resources.json              # Task 2
+       ├── comparison.json             # Task 2
+       └── trader-activity.json        # Task 2
+   ```
+
+4. **Variable strategy**:
+   - `test_run_id` - Essential for filtering
+   - `scenario` - Essential for filtering
+   - `baseline_id` - For comparison dashboard
+   - Keep others as needed per dashboard
+
+5. **Dashboard panel structure** (per original ticket specification):
+
+   **Overview Dashboard** (Task 1):
+   - Row 1: Test overview stats (scenario, duration, traders, verdict)
+   - Row 2: Order submission rate (time series + gauge)
+   - Row 3: Latency heatmaps (submission, settlement)
+   - Row 4: Order status (pie chart, success rate)
+
+   **API Performance Dashboard** (Task 1):
+   - Adapt patterns from PoC's API monitoring panels
+   - Response times, throughput, error rates by endpoint
+
+   **Resources, Comparison, Trader Activity** (Task 2):
+   - See `thoughts/tasks/COW-593-remaining-dashboards.md`
+
+### Dependencies
+
+- **Requires COW-591 complete**: Dashboard queries depend on Prometheus metrics being exposed
+- **Grafana provisioning**: Update `configs/grafana-dashboard.yml` to point to `configs/dashboards/`
+
+### Recommended Implementation Order
+
+1. Create `configs/dashboards/` directory
+2. Update `configs/grafana-dashboard.yml` provisioning path
+3. Create `configs/dashboards/performance-testing.json` with core panels
+4. Test with `docker compose --profile monitoring up -d`
+5. Iterate on panel queries and layout
+6. Add documentation screenshots to `docs/`
+
+### Acceptance Criteria (Full Scope, Split Delivery)
+
+**Task 1 — COW-593 (this ticket, ~2 points)**:
+- [ ] Performance Overview dashboard functional
+- [ ] API Performance dashboard functional
+- [ ] Order submission rate visualization
+- [ ] Latency distribution visualization (heatmap)
+- [ ] Test metadata display (scenario, duration, traders)
+- [ ] Dashboard variables working (test_run_id, scenario)
+- [ ] Dashboards auto-load on Grafana startup
+- [ ] Dashboard loads correctly with Prometheus datasource
+
+**Task 2 — `thoughts/tasks/COW-593-remaining-dashboards.md` (~3 points)**:
+- [ ] Resources dashboard (CPU, memory, network per container)
+- [ ] Comparison dashboard (baseline vs current, regression indicators)
+- [ ] Trader Activity dashboard (per-trader stats, activity heatmap)
+- [ ] Dashboard links and navigation between dashboards
+- [ ] Complete documentation with screenshots
+
+**Note**: Both tasks must be completed for full COW-593 delivery. Task 2 is tracked locally and should be completed immediately after Task 1.
+
+### Human Actions Required
+
+- After COW-591 and COW-593 are implemented, manual testing is required:
+  1. Start monitoring stack: `docker compose --profile monitoring up -d`
+  2. Run a performance test with Prometheus exporter enabled
+  3. Open Grafana at http://localhost:3000
+  4. Verify dashboard displays data correctly
+  5. Take screenshots for documentation

@@ -102,3 +102,104 @@ class TestMetricsRegistry:
         output = generate_latest(metrics.registry).decode()
         assert "cow_perf_test_info" in output
         assert 'test_id="abc123"' in output
+
+
+class TestMetricsRegistryPhase2:
+    """Tests for Phase 2 metrics in MetricsRegistry."""
+
+    def test_api_metrics_exist(self) -> None:
+        """Test that all API metrics are registered."""
+        metrics = MetricsRegistry()
+        output = generate_latest(metrics.registry).decode()
+
+        assert "cow_perf_api_requests_total" in output
+        assert "cow_perf_api_response_time_seconds" in output
+        assert "cow_perf_api_errors_total" in output
+
+    def test_resource_metrics_exist(self) -> None:
+        """Test that all resource metrics are registered."""
+        metrics = MetricsRegistry()
+        output = generate_latest(metrics.registry).decode()
+
+        assert "cow_perf_container_cpu_percent" in output
+        assert "cow_perf_container_memory_bytes" in output
+        assert "cow_perf_container_network_rx_bytes" in output
+        assert "cow_perf_container_network_tx_bytes" in output
+
+    def test_trader_metrics_exist(self) -> None:
+        """Test that all per-trader metrics are registered."""
+        metrics = MetricsRegistry()
+        output = generate_latest(metrics.registry).decode()
+
+        assert "cow_perf_trader_orders_submitted" in output
+        assert "cow_perf_trader_orders_filled" in output
+        assert "cow_perf_traders_active" in output
+
+    def test_comparison_metrics_exist(self) -> None:
+        """Test that all comparison metrics are registered."""
+        metrics = MetricsRegistry()
+        output = generate_latest(metrics.registry).decode()
+
+        assert "cow_perf_baseline_comparison_percent" in output
+        assert "cow_perf_regression_detected" in output
+        assert "cow_perf_regressions_total" in output
+
+    def test_api_request_counter(self) -> None:
+        """Test API request counter with labels."""
+        metrics = MetricsRegistry()
+        metrics.api_requests_total.labels(
+            endpoint="/api/v1/orders",
+            method="POST",
+            status="200",
+        ).inc()
+
+        output = generate_latest(metrics.registry).decode()
+        assert (
+            'cow_perf_api_requests_total{endpoint="/api/v1/orders",method="POST",status="200"} 1.0'
+            in output
+        )
+
+    def test_api_response_time_histogram(self) -> None:
+        """Test API response time histogram."""
+        metrics = MetricsRegistry()
+        metrics.api_response_time.labels(
+            endpoint="/api/v1/orders",
+            method="POST",
+        ).observe(0.15)
+
+        output = generate_latest(metrics.registry).decode()
+        assert "cow_perf_api_response_time_seconds_bucket" in output
+        assert "cow_perf_api_response_time_seconds_sum" in output
+
+    def test_container_resource_gauges(self) -> None:
+        """Test container resource gauges."""
+        metrics = MetricsRegistry()
+        metrics.container_cpu_percent.labels(container="orderbook").set(45.5)
+        metrics.container_memory_bytes.labels(container="orderbook").set(1024 * 1024 * 512)
+
+        output = generate_latest(metrics.registry).decode()
+        assert 'cow_perf_container_cpu_percent{container="orderbook"} 45.5' in output
+        assert 'cow_perf_container_memory_bytes{container="orderbook"}' in output
+
+    def test_trader_counter_with_index(self) -> None:
+        """Test per-trader counter using index."""
+        metrics = MetricsRegistry()
+        metrics.trader_orders_submitted.labels(trader_index="0").inc()
+        metrics.trader_orders_submitted.labels(trader_index="0").inc()
+        metrics.trader_orders_submitted.labels(trader_index="1").inc()
+
+        output = generate_latest(metrics.registry).decode()
+        assert 'cow_perf_trader_orders_submitted_total{trader_index="0"} 2.0' in output
+        assert 'cow_perf_trader_orders_submitted_total{trader_index="1"} 1.0' in output
+
+    def test_regression_detection_gauge(self) -> None:
+        """Test regression detection gauge with severity labels."""
+        metrics = MetricsRegistry()
+        metrics.regression_detected.labels(severity="critical").set(1)
+        metrics.regression_detected.labels(severity="major").set(2)
+        metrics.regression_detected.labels(severity="minor").set(3)
+
+        output = generate_latest(metrics.registry).decode()
+        assert 'cow_perf_regression_detected{severity="critical"} 1.0' in output
+        assert 'cow_perf_regression_detected{severity="major"} 2.0' in output
+        assert 'cow_perf_regression_detected{severity="minor"} 3.0' in output

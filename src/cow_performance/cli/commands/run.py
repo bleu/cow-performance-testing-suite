@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,43 @@ class GracefulShutdownHandler:
             print("\n\nShutdown requested, stopping traders gracefully...")
             # The orchestrator's run() method will check _running flag
             self.orchestrator._running = False
+
+
+async def update_prometheus_metrics(
+    exporter: PrometheusExporter,
+    orchestrator: TraderOrchestrator,
+    test_duration: float,
+    target_rate: float,
+) -> None:
+    """Periodically update Prometheus progress and throughput metrics.
+
+    Args:
+        exporter: The Prometheus exporter to update
+        orchestrator: The trader orchestrator (to check running state and get order counts)
+        test_duration: Total test duration in seconds
+        target_rate: Target orders per second
+    """
+    start_time = time.time()
+
+    while orchestrator._running:
+        elapsed = time.time() - start_time
+
+        # Update progress (0-100%)
+        progress_percent = min(100.0, (elapsed / test_duration) * 100)
+        exporter.update_progress(progress_percent)
+
+        # Calculate actual rate
+        total_orders = orchestrator.trader_pool.get_total_orders_submitted()
+        actual_rate = total_orders / elapsed if elapsed > 0 else 0.0
+
+        # Update throughput metrics
+        exporter.update_throughput(
+            orders_per_second=actual_rate,
+            target_rate=target_rate,
+            actual_rate=actual_rate,
+        )
+
+        await asyncio.sleep(1.0)  # Update every second
 
 
 async def run_performance_test(
@@ -449,7 +487,29 @@ async def run_performance_test(
             try:
                 # Start test
                 start_time = datetime.now()
-                await orchestrator.run()
+
+                if prometheus_exporter:
+                    # Calculate target rate from behavior config (orders per minute -> per second)
+                    target_rate = behavior_config.base_rate / 60.0
+
+                    # Run orchestrator and metrics update loop concurrently
+                    metrics_task = asyncio.create_task(
+                        update_prometheus_metrics(
+                            prometheus_exporter,
+                            orchestrator,
+                            float(test_duration),
+                            target_rate,
+                        )
+                    )
+                    await orchestrator.run()
+                    metrics_task.cancel()  # Stop metrics loop when test completes
+                    try:
+                        await metrics_task
+                    except asyncio.CancelledError:
+                        pass
+                else:
+                    await orchestrator.run()
+
                 end_time = datetime.now()
 
                 progress.update(task, description="[bold green]Test completed!")

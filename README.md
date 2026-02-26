@@ -58,6 +58,32 @@ Comprehensive performance testing suite for the CoW Protocol Playground, enablin
    cow-perf run --config configs/scenarios/light-load.yml
    ```
 
+## Monitoring & Visualization
+
+Prometheus metrics export is **enabled by default** (port 9091). To use the full monitoring stack:
+
+1. **Start Prometheus & Grafana**
+   ```bash
+   docker compose --profile monitoring up -d
+   ```
+
+2. **Run a test** (metrics export automatically on port 9091)
+   ```bash
+   cow-perf run --config configs/scenarios/light-load.yml
+   ```
+
+3. **View dashboards** at http://localhost:3000 (default: admin/admin)
+   - Performance Overview
+   - API Performance
+   - Resources
+   - Comparison
+   - Trader Activity
+
+4. **Disable metrics export** (if needed)
+   ```bash
+   cow-perf run --config configs/scenarios/light-load.yml --prometheus-port 0
+   ```
+
 For detailed setup and troubleshooting, see [Development Guide](docs/development.md).
 
 ## Documentation

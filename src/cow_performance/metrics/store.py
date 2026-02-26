@@ -236,7 +236,8 @@ class MetricsStore:
             metrics.samples.pop(0)
 
         metrics.add_sample(sample)
-        self._notify_callbacks("resource", sample)
+        # Pass (container_name, sample) tuple to callbacks for Prometheus exporter
+        self._notify_callbacks("resource", (container_name, sample))
 
     def get_resource_metrics(self, container_name: str | None = None) -> dict[str, ResourceMetrics]:
         """

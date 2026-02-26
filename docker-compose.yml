@@ -245,6 +245,7 @@ services:
       - "9090:9090"
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./configs/prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
     profiles:
       - monitoring
@@ -263,6 +264,7 @@ services:
     volumes:
       - ./configs/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
       - ./configs/grafana-dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
+      - ./configs/dashboards:/etc/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
