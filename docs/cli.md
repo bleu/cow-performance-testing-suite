@@ -98,6 +98,9 @@ default_trader_count: 10
 default_duration: 60
 default_startup_interval: 0.1
 
+# Prometheus metrics export (enabled by default)
+prometheus_port: 9091  # Port for metrics exporter (null or 0 to disable)
+
 # Order type distribution (must sum to 1.0)
 market_order_ratio: 0.4
 limit_order_ratio: 0.4
@@ -335,6 +338,33 @@ cow-perf run --scenario medium-load --baseline v1.0
 
 # Run with specific configuration
 cow-perf run --config ./config.yml --scenario light-load
+```
+
+### Real-Time Metrics Export
+
+Prometheus metrics export is **enabled by default** on port 9091. During test execution, metrics are exposed at `http://localhost:9091/metrics` for Prometheus scraping.
+
+```bash
+# Run with default Prometheus export (port 9091)
+cow-perf run --config configs/scenarios/light-load.yml
+
+# Use a different port
+cow-perf run --config configs/scenarios/light-load.yml --prometheus-port 9092
+
+# Disable Prometheus export
+cow-perf run --config configs/scenarios/light-load.yml --prometheus-port 0
+```
+
+**Using with Docker monitoring stack:**
+
+```bash
+# Start Prometheus and Grafana
+docker compose --profile monitoring up -d
+
+# Run test (metrics automatically available to Prometheus)
+cow-perf run --config configs/scenarios/light-load.yml
+
+# View dashboards at http://localhost:3000
 ```
 
 ---

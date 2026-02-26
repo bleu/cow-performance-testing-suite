@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from cow_performance.load_generation import (
 from cow_performance.load_generation.order_signer import ConditionalOrderSigner
 from cow_performance.metrics import MetricsStore
 from cow_performance.monitoring import ResourceMonitor, ResourceMonitorConfig
+from cow_performance.prometheus import PrometheusExporter
 
 from ..config import PerformanceTestConfig
 from ..output import (
@@ -65,6 +67,43 @@ class GracefulShutdownHandler:
             self.orchestrator._running = False
 
 
+async def update_prometheus_metrics(
+    exporter: PrometheusExporter,
+    orchestrator: TraderOrchestrator,
+    test_duration: float,
+    target_rate: float,
+) -> None:
+    """Periodically update Prometheus progress and throughput metrics.
+
+    Args:
+        exporter: The Prometheus exporter to update
+        orchestrator: The trader orchestrator (to check running state and get order counts)
+        test_duration: Total test duration in seconds
+        target_rate: Target orders per second
+    """
+    start_time = time.time()
+
+    while orchestrator._running:
+        elapsed = time.time() - start_time
+
+        # Update progress (0-100%)
+        progress_percent = min(100.0, (elapsed / test_duration) * 100)
+        exporter.update_progress(progress_percent)
+
+        # Calculate actual rate
+        total_orders = orchestrator.trader_pool.get_total_orders_submitted()
+        actual_rate = total_orders / elapsed if elapsed > 0 else 0.0
+
+        # Update throughput metrics
+        exporter.update_throughput(
+            orders_per_second=actual_rate,
+            target_rate=target_rate,
+            actual_rate=actual_rate,
+        )
+
+        await asyncio.sleep(1.0)  # Update every second
+
+
 async def run_performance_test(
     config: PerformanceTestConfig,
     traders: int | None = None,
@@ -72,6 +111,7 @@ async def run_performance_test(
     settlement_wait: int | None = None,
     verbose: bool = False,
     dry_run: bool = False,
+    prometheus_port: int | None = None,
 ) -> dict[str, Any]:
     """Run a performance test with the given configuration.
 
@@ -293,6 +333,27 @@ async def run_performance_test(
     # Create shared metrics store for all components
     metrics_store = MetricsStore()
 
+    # Start Prometheus exporter if port specified
+    prometheus_exporter: PrometheusExporter | None = None
+    if prometheus_port is not None:
+        prometheus_exporter = PrometheusExporter(
+            port=prometheus_port,
+            scenario=config.trading_pattern,  # Use trading pattern as scenario name
+        )
+        prometheus_exporter.start()
+        prometheus_exporter.register_with_store(metrics_store)
+
+        # Set initial test metadata
+        prometheus_exporter.set_test_duration(test_duration)
+        prometheus_exporter.set_num_traders(num_traders)
+        prometheus_exporter.set_test_start()
+
+        if verbose:
+            console.print(
+                f"[cyan]Prometheus Exporter:[/cyan] http://localhost:{prometheus_port}/metrics"
+            )
+            console.print()
+
     # Create order tracker with metrics store
     order_tracker = OrderTracker(
         poll_interval=5.0,  # Poll every 5 seconds
@@ -426,7 +487,29 @@ async def run_performance_test(
             try:
                 # Start test
                 start_time = datetime.now()
-                await orchestrator.run()
+
+                if prometheus_exporter:
+                    # Calculate target rate from behavior config (orders per minute -> per second)
+                    target_rate = behavior_config.base_rate / 60.0
+
+                    # Run orchestrator and metrics update loop concurrently
+                    metrics_task = asyncio.create_task(
+                        update_prometheus_metrics(
+                            prometheus_exporter,
+                            orchestrator,
+                            float(test_duration),
+                            target_rate,
+                        )
+                    )
+                    await orchestrator.run()
+                    metrics_task.cancel()  # Stop metrics loop when test completes
+                    try:
+                        await metrics_task
+                    except asyncio.CancelledError:
+                        pass
+                else:
+                    await orchestrator.run()
+
                 end_time = datetime.now()
 
                 progress.update(task, description="[bold green]Test completed!")
@@ -439,6 +522,10 @@ async def run_performance_test(
         # Stop resource monitoring
         if resource_monitor:
             await resource_monitor.stop()
+
+        # Stop Prometheus exporter
+        if prometheus_exporter:
+            prometheus_exporter.stop()
 
     # Get metrics
     metrics = orchestrator.get_metrics()
@@ -509,6 +596,7 @@ def run_command(
     output_file: str | None = None,
     verbose: bool = False,
     dry_run: bool = False,
+    prometheus_port: int | None = None,
 ) -> None:
     """Run command entry point.
 
@@ -522,6 +610,7 @@ def run_command(
         output_file: Optional path to save results
         verbose: Enable verbose output
         dry_run: Perform dry run without submitting orders
+        prometheus_port: Optional port for Prometheus metrics exporter
 
     Raises:
         SystemExit: On error (with appropriate exit code)
@@ -541,6 +630,7 @@ def run_command(
                 settlement_wait=settlement_wait,
                 verbose=use_verbose,
                 dry_run=dry_run,
+                prometheus_port=prometheus_port,
             )
         )
 

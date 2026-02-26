@@ -401,7 +401,14 @@ class TraderOrchestrator:
             print("No pending orders to monitor")
             return
 
-        print(f"Monitoring {len(pending_orders)} pending orders...")
+        # Show initial status breakdown
+        status_counts: dict[str, int] = {}
+        for o in pending_orders:
+            status = o.current_status.value
+            status_counts[status] = status_counts.get(status, 0) + 1
+        status_str = ", ".join(f"{v} {k}" for k, v in sorted(status_counts.items()))
+
+        print(f"Monitoring {len(pending_orders)} pending orders [{status_str}]...")
 
         # Monitor orders with polling
         start_time = time.time()
@@ -429,12 +436,25 @@ class TraderOrchestrator:
             all_orders = self.order_tracker.get_all_orders()
             pending_orders = [o for o in all_orders if not o.is_terminal_state()]
             filled_orders = [o for o in all_orders if o.current_status.value == "filled"]
+            expired_orders = [o for o in all_orders if o.current_status.value == "expired"]
+            failed_orders = [o for o in all_orders if o.current_status.value == "failed"]
 
             filled_count = len(filled_orders)
             if filled_count > last_filled_count:
+                # Build status breakdown for pending orders
+                loop_status_counts: dict[str, int] = {}
+                for o in pending_orders:
+                    status = o.current_status.value
+                    loop_status_counts[status] = loop_status_counts.get(status, 0) + 1
+
+                status_str = ", ".join(f"{v} {k}" for k, v in sorted(loop_status_counts.items()))
+                terminal_str = ""
+                if expired_orders or failed_orders:
+                    terminal_str = f" | {len(expired_orders)} expired, {len(failed_orders)} failed"
+
                 print(
                     f"  Progress: {filled_count} filled, "
-                    f"{len(pending_orders)} pending "
+                    f"{len(pending_orders)} pending [{status_str}]{terminal_str} "
                     f"({int(time.time() - start_time)}s elapsed)"
                 )
                 last_filled_count = filled_count
@@ -447,11 +467,27 @@ class TraderOrchestrator:
             # Wait before next poll
             await asyncio.sleep(poll_interval)
 
-        # Final summary
+        # Final summary with detailed breakdown
         final_orders = self.order_tracker.get_all_orders()
         filled = len([o for o in final_orders if o.current_status.value == "filled"])
-        pending = len([o for o in final_orders if not o.is_terminal_state()])
-        print(f"Settlement wait completed: {filled} filled, {pending} still pending")
+        expired = len([o for o in final_orders if o.current_status.value == "expired"])
+        failed = len([o for o in final_orders if o.current_status.value == "failed"])
+        cancelled = len([o for o in final_orders if o.current_status.value == "cancelled"])
+        still_pending = [o for o in final_orders if not o.is_terminal_state()]
+
+        # Build pending breakdown
+        pending_str = ""
+        if still_pending:
+            final_status_counts: dict[str, int] = {}
+            for o in still_pending:
+                status = o.current_status.value
+                final_status_counts[status] = final_status_counts.get(status, 0) + 1
+            pending_str = f" (pending breakdown: {final_status_counts})"
+
+        print(
+            f"Settlement wait completed: {filled} filled, {expired} expired, "
+            f"{failed} failed, {cancelled} cancelled, {len(still_pending)} still pending{pending_str}"
+        )
 
     async def run(self) -> None:
         """

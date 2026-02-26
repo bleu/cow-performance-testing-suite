@@ -58,11 +58,24 @@ scrape_configs:
           service: "baseline"
           component: "solver"
 
-# Optional: Add alerting rules
-# rule_files:
-#   - "/etc/prometheus/alerts/*.yml"
+  # CoW Performance Test Suite metrics
+  # Note: Only active during test runs with --prometheus-port flag
+  - job_name: "cow-performance-test"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:9091"]
+        labels:
+          service: "performance-test"
+          component: "cow-perf"
+    # Fail gracefully if exporter not running
+    scrape_timeout: 5s
 
-# Optional: Configure Alertmanager
+# Alert rule files
+rule_files:
+  - "/etc/prometheus/alerts/*.yml"
+
+# Note: Alertmanager not configured - alerts visible in Prometheus UI and Grafana only
+# To enable Alertmanager notifications, uncomment below and add alertmanager service:
 # alerting:
 #   alertmanagers:
 #     - static_configs:

@@ -201,6 +201,12 @@ class PerformanceTestConfig(BaseSettings):
         description="Default interval between trader startups",
     )
 
+    # Prometheus metrics export
+    prometheus_port: int | None = Field(
+        default=9091,
+        description="Port for Prometheus metrics exporter (None or 0 to disable)",
+    )
+
     # Trading pattern configuration
     trading_pattern: str = Field(
         default="constant_rate",

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from cow_performance.baselines.models import PerformanceBaseline
 from cow_performance.comparison.models import (
@@ -25,9 +24,6 @@ from cow_performance.metrics.aggregator import (
     PercentileStats,
     ResourceAggregateMetrics,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

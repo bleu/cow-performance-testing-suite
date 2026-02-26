@@ -63,12 +63,15 @@ Local copies of Linear tickets. **These are the source of truth** - do not updat
 | [COW-588-baseline-snapshot-system.md](tickets/COW-588-baseline-snapshot-system.md) | COW-588 | ✅ Done | M2 | 📝 | baseline, snapshots, comparison |
 | [COW-589-comparison-engine-regression-detection.md](tickets/COW-589-comparison-engine-regression-detection.md) | COW-589 | ✅ Done | M2 | 📝 | comparison, regression, statistics |
 | [COW-590-automated-reporting.md](tickets/COW-590-automated-reporting.md) | COW-590 | ✅ Done | M2 | 📝 | reporting, formatters, CSV, recommendations |
+| [COW-591-prometheus-exporters.md](tickets/COW-591-prometheus-exporters.md) | COW-591 | 🔲 Todo | M3 | | prometheus, metrics, exporters, monitoring |
+| [COW-593-grafana-dashboards.md](tickets/COW-593-grafana-dashboards.md) | COW-593 | 🔲 Todo | M3 | | grafana, dashboards, visualization |
+| [COW-598-alerting-rules.md](tickets/COW-598-alerting-rules.md) | COW-598 | 🔲 Todo | M3 | | alerting, prometheus, notifications |
 
 > 📝 = Has "Implementation Notes" section with architectural decisions and deviations
-| [COW-608-readme-restructuring.md](tickets/COW-608-readme-restructuring.md) | COW-608 | ✅ Done | - | documentation, README |
-| [COW-609-foundation-data-models-storage.md](tickets/COW-609-foundation-data-models-storage.md) | COW-609 | ✅ Done | M2 | data-models, MetricsStore, export |
-| [COW-610-collection-lifecycle-api-monitoring.md](tickets/COW-610-collection-lifecycle-api-monitoring.md) | COW-610 | ✅ Done | M2 | lifecycle, API, resource-monitoring |
-| [COW-611-analysis-aggregation-realtime.md](tickets/COW-611-analysis-aggregation-realtime.md) | COW-611 | ✅ Done | M2 | aggregation, percentiles, streaming |
+| [COW-608-readme-restructuring.md](tickets/COW-608-readme-restructuring.md) | COW-608 | ✅ Done | - | | documentation, README |
+| [COW-609-foundation-data-models-storage.md](tickets/COW-609-foundation-data-models-storage.md) | COW-609 | ✅ Done | M2 | | data-models, MetricsStore, export |
+| [COW-610-collection-lifecycle-api-monitoring.md](tickets/COW-610-collection-lifecycle-api-monitoring.md) | COW-610 | ✅ Done | M2 | | lifecycle, API, resource-monitoring |
+| [COW-611-analysis-aggregation-realtime.md](tickets/COW-611-analysis-aggregation-realtime.md) | COW-611 | ✅ Done | M2 | | aggregation, percentiles, streaming |
 
 ### Ticket Hierarchy
 
@@ -90,6 +93,17 @@ COW-590 (Automated Reporting)
 └── Depends on: COW-587, COW-588, COW-589 (optional)
 
 COW-608 (README Restructuring) ─ Standalone
+
+COW-591 (Prometheus Exporters)
+├── Depends on: COW-587
+└── Blocks: COW-593
+
+COW-593 (Grafana Dashboards)
+├── Depends on: COW-591
+└── Blocks: COW-598
+
+COW-598 (Alerting Rules)
+└── Depends on: COW-591, COW-593
 ```
 
 ---
@@ -108,6 +122,7 @@ Detailed implementation approaches for tickets. Read these before implementing t
 | [2026-02-02-cow-588-baseline-snapshot-system.md](plans/2026-02-02-cow-588-baseline-snapshot-system.md) | COW-588 | ✅ Complete | BaselineManager, git-info, UUID-index, serialization |
 | [2026-02-03-cow-589-comparison-engine.md](plans/2026-02-03-cow-589-comparison-engine.md) | COW-589 | ✅ Complete | ComparisonEngine, regression, statistics, p-value, Cohen's-d |
 | [2026-02-03-cow-590-automated-reporting.md](plans/2026-02-03-cow-590-automated-reporting.md) | COW-590 | ✅ Complete | ReportGenerator, formatters, CSV, recommendations, CLI |
+| [2026-02-13-cow-598-alerting-rules.md](plans/2026-02-13-cow-598-alerting-rules.md) | COW-598 | 🔲 Ready | Prometheus alerts, alerting rules, thresholds, Grafana annotations |
 
 ---
 
@@ -127,7 +142,7 @@ Reusable agent prompts for specific tasks. Use these instead of writing new prom
 
 | File | Purpose | Target Area |
 |------|---------|-------------|
-| _(none currently)_ | — | — |
+| [m3-planning-agent.md](prompts/m3-planning-agent.md) | M3 planning & validation (claude-code): refine tasks, grant alignment, produce M3 validation doc | M3 (COW-591, COW-593, COW-598) |
 
 ---
 
@@ -200,6 +215,22 @@ tickets/COW-590-automated-reporting.md
 tickets/COW-608-readme-restructuring.md
 ```
 
+### Prometheus Exporters (COW-591) — M3
+```
+tickets/COW-591-prometheus-exporters.md
+```
+
+### Grafana Dashboards (COW-593) — M3
+```
+tickets/COW-593-grafana-dashboards.md
+```
+
+### Alerting Rules (COW-598) — M3
+```
+tickets/COW-598-alerting-rules.md
+└── plans/2026-02-13-cow-598-alerting-rules.md  (execution plan)
+```
+
 ---
 
 ## Keyword Index
@@ -209,6 +240,8 @@ Find documents by topic:
 | Keyword | Documents |
 |---------|-----------|
 | `aggregation` | COW-611 ticket, COW-611 plan |
+| `alerting` | COW-598 ticket |
+| `alertmanager` | COW-598 ticket |
 | `API` | COW-610 ticket, COW-610 plan |
 | `baseline` | COW-588 ticket, COW-588 plan |
 | `BaselineManager` | COW-588 plan |
@@ -216,36 +249,43 @@ Find documents by topic:
 | `Cohen's-d` | COW-589 plan |
 | `comparison` | COW-589 ticket, COW-589 plan |
 | `ComparisonEngine` | COW-589 plan |
+| `CSV` | COW-590 plan |
+| `dashboards` | COW-593 ticket |
 | `data-models` | COW-609 ticket, COW-609 plan |
 | `documentation` | COW-608 ticket |
 | `export` | COW-609 plan |
+| `formatters` | COW-590 plan |
 | `git-info` | COW-588 plan |
+| `grafana` | COW-593 ticket |
+| `heatmaps` | COW-593 ticket |
+| `histograms` | COW-591 ticket |
 | `lifecycle` | COW-610 ticket, COW-610 plan |
-| `metrics` | COW-587 ticket, COW-609/610/611 |
+| `metrics` | COW-587 ticket, COW-609/610/611, COW-591 ticket |
+| `monitoring` | COW-591 ticket, COW-598 ticket |
+| `notifications` | COW-598 ticket |
 | `p-value` | COW-589 plan |
+| `prometheus` | COW-591 ticket, COW-598 ticket |
+| `PrometheusExporter` | COW-591 ticket |
 | `Pydantic` | COW-609 plan |
 | `real-time` | COW-611 ticket, COW-611 plan |
+| `recommendations` | COW-590 plan |
 | `regression` | COW-589 ticket, COW-589 plan |
+| `ReportGenerator` | COW-590 plan |
+| `reporting` | COW-590 ticket, COW-590 plan |
 | `serialization` | COW-588 plan |
 | `statistics` | COW-589 plan |
 | `streaming` | COW-611 ticket, COW-611 plan |
+| `TDD` | COW-587 validation plan |
 | `testing` | COW-587 validation plan |
 | `Typer` | 2026-01-26 plan |
-| `reporting` | COW-590 ticket, COW-590 plan |
-| `formatters` | COW-590 plan |
-| `CSV` | COW-590 plan |
-| `recommendations` | COW-590 plan |
-| `ReportGenerator` | COW-590 plan |
-| `TDD` | COW-587 validation plan |
-| `acceptance-tests` | — |
-| `user-scenarios` | — |
 | `validation` | COW-587 validation plan |
+| `visualization` | COW-593 ticket |
 
 ---
 
 ## Maintenance Notes
 
-**Last Updated**: 2026-02 (refactor: internal docs, removed prompts/audits/research/plans)
+**Last Updated**: 2026-02-04 (added M3 tickets: COW-591, COW-593, COW-598)
 
 ### How to Update This Index
 1. When adding new files, add entries to the appropriate section
