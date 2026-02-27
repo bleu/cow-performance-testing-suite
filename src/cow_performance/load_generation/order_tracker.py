@@ -155,6 +155,10 @@ class OrderTracker:
         if error_message is not None:
             metadata.error_message = error_message
 
+        # Notify metrics store to trigger Prometheus exporter callbacks
+        if self._metrics_store is not None:
+            self._metrics_store.add_order(metadata)
+
     async def poll_order_status(
         self,
         order_uid: str,
