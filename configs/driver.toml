@@ -16,10 +16,10 @@ tx-gas-limit = "45000000"
 
 [[solver]]
 # Name of the solver (must be unique)
-name = "baseline"
+name = "baseline-1"
 
 # Solver endpoint URL
-endpoint = "http://baseline"
+endpoint = "http://baseline-1"
 
 # Absolute slippage tolerance (in wei)
 # This protects against price movements during settlement
@@ -32,6 +32,20 @@ relative-slippage = "0.1"
 # Private key for the solver account
 # Default: Anvil test account #0 (DO NOT USE IN PRODUCTION)
 # For custom account, generate a new private key and fund it
+account = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+[[solver]]
+name = "baseline-2"
+endpoint = "http://baseline-2"
+absolute-slippage = "40000000000000000"
+relative-slippage = "0.1"
+account = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+[[solver]]
+name = "baseline-3"
+endpoint = "http://baseline-3"
+absolute-slippage = "40000000000000000"
+relative-slippage = "0.1"
 account = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 # =============================================================================
@@ -80,13 +94,54 @@ base-tokens = [
     "0x6810e776880C02933D47DB1b9fc05908e5386b96",  # GNO
 ]
 
-# Uniswap V2 liquidity source configuration (Ethereum mainnet)
+# =============================================================================
+# Uniswap V2 Liquidity Sources
+# =============================================================================
+
+# Uniswap V2 - Original AMM with constant product formula
 [[liquidity.uniswap-v2]]
-# Uniswap V2 Router address
 router = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
-
-# Pool initialization code hash (for deterministic pool address calculation)
 pool-code = "0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f"
-
-# How long to cache information about missing pools
 missing-pool-cache-time = "1h"
+
+# SushiSwap - Uniswap V2 fork with different liquidity pools
+[[liquidity.uniswap-v2]]
+preset = "sushi-swap"
+
+# =============================================================================
+# Swapr Liquidity Source
+# =============================================================================
+
+# Swapr - Uniswap V2 with extended features
+[[liquidity.swapr]]
+preset = "swapr"
+
+# =============================================================================
+# Uniswap V3 Liquidity Source
+# =============================================================================
+
+# Uniswap V3 - Concentrated liquidity with multiple fee tiers
+[[liquidity.uniswap-v3]]
+preset = "uniswap-v3"
+# Public Uniswap V3 subgraph for Ethereum mainnet
+graph-url = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+# Initialize top 100 deepest pools on startup
+max-pools-to-initialize = 100
+# Query up to 1000 pools per tick query
+max-pools-per-tick-query = 1000
+# Reinitialize every 12 hours to discover new pools
+reinit-interval = "12h"
+
+# =============================================================================
+# Balancer V2 Liquidity Source
+# =============================================================================
+
+# Balancer V2 - Multi-token weighted pools with custom ratios
+# TEMPORARILY DISABLED FOR TESTING
+#[[liquidity.balancer-v2]]
+#preset = "balancer-v2"
+## Balancer V2 subgraph for Ethereum mainnet (The Graph decentralized network)
+## API key is substituted from GRAPH_API_KEY environment variable
+#graph-url = "https://gateway-arbitrum.network.thegraph.com/api/${GRAPH_API_KEY}/subgraphs/id/C4ayEZP2yTXRAB8vSaTrgN4m9anTe9Mdm2ViyiAuV9TV"
+## Reinitialize every 12 hours to discover new pools
+#reinit-interval = "12h"
