@@ -56,6 +56,7 @@ class OrderTracker:
         buy_token: str = "",
         sell_amount: str = "0",
         buy_amount: str = "0",
+        order_type: str = "unknown",
     ) -> OrderMetadata:
         """
         Start tracking a new order.
@@ -67,6 +68,7 @@ class OrderTracker:
             buy_token: Address of buy token
             sell_amount: Amount being sold
             buy_amount: Amount being bought
+            order_type: Type of order (market, limit, twap, stop_loss, good_after_time)
 
         Returns:
             The OrderMetadata instance for this order
@@ -79,6 +81,7 @@ class OrderTracker:
             buy_token=buy_token,
             sell_amount=sell_amount,
             buy_amount=buy_amount,
+            order_type=order_type,
         )
         self._orders[order_uid] = metadata
 
@@ -340,7 +343,7 @@ class OrderTracker:
         if not orders:
             return metrics
 
-        # Count orders by status
+        # Count orders by status and type
         for order in orders:
             status = order.current_status
             if status == OrderStatus.CREATED:
@@ -359,6 +362,19 @@ class OrderTracker:
                 metrics.orders_cancelled += 1
             elif status == OrderStatus.FAILED:
                 metrics.orders_failed += 1
+
+            # Count by order type
+            order_type = order.order_type
+            if order_type == "market":
+                metrics.market_orders += 1
+            elif order_type == "limit":
+                metrics.limit_orders += 1
+            elif order_type == "twap":
+                metrics.twap_orders += 1
+            elif order_type == "stop_loss":
+                metrics.stop_loss_orders += 1
+            elif order_type == "good_after_time":
+                metrics.good_after_time_orders += 1
 
         # Calculate average times
         times_to_submit = [t for order in orders if (t := order.get_time_to_submit()) is not None]

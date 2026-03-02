@@ -51,6 +51,7 @@ class OrderMetadata:
 
     filled_amount: str = "0"
     error_message: str | None = None
+    order_type: str = "unknown"  # "market", "limit", "twap", "stop_loss", "good_after_time"
 
     def update_status(self, new_status: OrderStatus, timestamp: float | None = None) -> None:
         """
@@ -143,6 +144,13 @@ class OrderMetrics:
     orders_expired: int = 0
     orders_cancelled: int = 0
     orders_failed: int = 0
+
+    # Order type counts
+    market_orders: int = 0
+    limit_orders: int = 0
+    twap_orders: int = 0
+    stop_loss_orders: int = 0
+    good_after_time_orders: int = 0
 
     avg_time_to_submit: float = 0.0
     avg_time_to_accept: float = 0.0

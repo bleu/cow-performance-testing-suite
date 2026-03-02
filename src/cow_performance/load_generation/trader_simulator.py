@@ -347,8 +347,9 @@ class TraderSimulator:
             elif order_type == "good_after_time":
                 await self._submit_good_after_time_order()
         except Exception as e:
-            # Log error but continue trading
-            print(f"Error submitting {order_type} order: {e}")
+            # Quote or submission failed - skip this order and continue
+            # This matches production behavior: if quote fails, user must try again
+            print(f"Skipping {order_type} order: {e}")
 
     async def _submit_standard_order(self, order_type: str) -> None:
         """
@@ -356,16 +357,24 @@ class TraderSimulator:
 
         Args:
             order_type: Either 'market' or 'limit'
+
+        Raises:
+            Exception: If quote fails or order submission fails
         """
         # Generate order using factory (already signed)
-        if order_type == "market":
-            signed_order = await self.order_factory.create_market_order(
-                trader_account=self.trader.get_account()
-            )
-        else:
-            signed_order = await self.order_factory.create_limit_order(
-                trader_account=self.trader.get_account()
-            )
+        # This will raise an exception if quote fails - caller should handle it
+        try:
+            if order_type == "market":
+                signed_order = await self.order_factory.create_market_order(
+                    trader_account=self.trader.get_account()
+                )
+            else:
+                signed_order = await self.order_factory.create_limit_order(
+                    trader_account=self.trader.get_account()
+                )
+        except Exception as e:
+            # Quote failed - skip this order and let caller retry with different parameters
+            raise RuntimeError(f"Quote failed for {order_type} order: {e}") from e
 
         # Track order with temporary UID first (for pre-submission tracking)
         temp_uid = f"pending_{int(time.time() * 1000)}"
@@ -376,6 +385,7 @@ class TraderSimulator:
             buy_token=signed_order.buyToken,
             sell_amount=signed_order.sellAmount,
             buy_amount=signed_order.buyAmount,
+            order_type=order_type,
         )
 
         # Update status to submitted
@@ -414,6 +424,7 @@ class TraderSimulator:
                 buy_token=signed_order.buyToken,
                 sell_amount=signed_order.sellAmount,
                 buy_amount=signed_order.buyAmount,
+                order_type=order_type,
             )
             self.order_tracker.update_order_status(order_uid, OrderStatus.ACCEPTED)
 
@@ -450,6 +461,7 @@ class TraderSimulator:
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
             sell_amount="0",  # Placeholder
             buy_amount="0",  # Placeholder
+            order_type="twap",
         )
 
         # Update status
@@ -488,6 +500,7 @@ class TraderSimulator:
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
             sell_amount="0",  # Placeholder
             buy_amount="0",  # Placeholder
+            order_type="stop_loss",
         )
 
         # Update status
@@ -526,6 +539,7 @@ class TraderSimulator:
             buy_token="0x0000000000000000000000000000000000000000",  # Placeholder
             sell_amount="0",  # Placeholder
             buy_amount="0",  # Placeholder
+            order_type="good_after_time",
         )
 
         # Update status

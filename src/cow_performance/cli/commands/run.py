@@ -263,15 +263,16 @@ async def run_performance_test(
         console.print()
 
     # Create order factories
-    # Set amount range based on wallet funding if enabled, otherwise use conservative defaults
-    if config.wallet.funding_enabled:
-        # Use 10-40% of minimum funded token balance to ensure fees are coverable
-        # while avoiding insufficient balance errors
+    # Set amount range: use explicit config values if set, otherwise calculate from wallet funding
+    if config.min_order_amount and config.max_order_amount:
+        # Use explicitly configured order amounts
+        amount_range = (config.min_order_amount, config.max_order_amount)
+    elif config.wallet.funding_enabled:
+        # Calculate from wallet funding: use 20-60% of minimum funded token balance
+        # to ensure fees are coverable while avoiding insufficient balance errors
         min_token_balance = (
             min(config.wallet.token_balances.values()) if config.wallet.token_balances else 1.0
         )
-        # Minimum 20% to ensure sell amount covers gas fees and provides enough trade value
-        # Maximum 60% to use substantial amounts for better settlement viability
         amount_range = (min_token_balance * 0.2, min_token_balance * 0.6)
     else:
         # Conservative default for unfunded wallets
@@ -555,16 +556,8 @@ async def run_performance_test(
     metrics["orchestration"]["duration"] = test_duration
     metrics["orchestration"]["startup_interval"] = config.default_startup_interval
 
-    # Add order type breakdown from trader pool
-    total_orders = trader_pool.get_total_orders_submitted()
-    metrics["orders"]["total_submitted"] = total_orders
-    metrics["orders"]["market_orders"] = int(total_orders * config.market_order_ratio)
-    metrics["orders"]["limit_orders"] = int(total_orders * config.limit_order_ratio)
-    metrics["orders"]["twap_orders"] = int(total_orders * config.twap_order_ratio)
-    metrics["orders"]["stop_loss_orders"] = int(total_orders * config.stop_loss_order_ratio)
-    metrics["orders"]["good_after_time_orders"] = int(
-        total_orders * config.good_after_time_order_ratio
-    )
+    # Order type breakdown is now provided by orchestrator from actual tracking
+    # (removed ratio-based estimation)
 
     # Add trader statistics
     active_traders = sum(

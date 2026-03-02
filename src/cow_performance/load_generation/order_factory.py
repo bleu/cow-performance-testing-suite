@@ -225,33 +225,20 @@ class OrderFactory:
 
         # Get realistic quote with surplus if API client available
         if self.api_client is not None:
-            try:
-                quote = await self.api_client.get_quote(
-                    sell_token=token_pair.sell_token.address,
-                    buy_token=token_pair.buy_token.address,
-                    sell_amount=str(sell_amount_wei),
-                    from_address=trader_account.address,
-                    kind=kind.value,
-                    app_data=self.market_app_data_hash,  # Include appData for accurate quote
-                )
-                # Use quoted buy amount (includes surplus for solver profitability)
-                # Fee is already accounted for in the quote, so we set feeAmount to 0
-                buy_amount_wei = int(quote["quote"]["buyAmount"])
-                fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
-            except Exception as e:
-                # Fallback to approximate market rates with surplus
-                print(f"Warning: Quote failed ({e}), using fallback pricing")
-                fallback_rate = self._get_market_rate_fallback(
-                    token_pair.sell_token.symbol,
-                    token_pair.buy_token.symbol,
-                )
-                buy_amount_wei = self._calculate_buy_amount(
-                    sell_amount_wei,
-                    token_pair.sell_token.decimals,
-                    token_pair.buy_token.decimals,
-                    price=fallback_rate,
-                )
-                fee_amount_wei = 0  # Use zero fee in fallback mode
+            # Quote is required - if it fails, let the exception propagate
+            # The caller should retry with different parameters (amount, token pair, etc.)
+            quote = await self.api_client.get_quote(
+                sell_token=token_pair.sell_token.address,
+                buy_token=token_pair.buy_token.address,
+                sell_amount=str(sell_amount_wei),
+                from_address=trader_account.address,
+                kind=kind.value,
+                app_data=self.market_app_data_hash,  # Include appData for accurate quote
+            )
+            # Use quoted buy amount (includes surplus for solver profitability)
+            # Fee is already accounted for in the quote, so we set feeAmount to 0
+            buy_amount_wei = int(quote["quote"]["buyAmount"])
+            fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
         else:
             # No API client - use approximate market rates (dry-run mode)
             fallback_rate = self._get_market_rate_fallback(
@@ -329,37 +316,20 @@ class OrderFactory:
 
         # Get realistic quote with surplus if API client available
         if self.api_client is not None:
-            try:
-                quote = await self.api_client.get_quote(
-                    sell_token=token_pair.sell_token.address,
-                    buy_token=token_pair.buy_token.address,
-                    sell_amount=str(sell_amount_wei),
-                    from_address=trader_account.address,
-                    kind=kind.value,
-                    app_data=self.limit_app_data_hash,  # Include appData for accurate quote
-                )
-                # Use quoted buy amount (includes surplus for solver profitability)
-                # Fee is already accounted for in the quote, so we set feeAmount to 0
-                buy_amount_wei = int(quote["quote"]["buyAmount"])
-                fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
-            except Exception as e:
-                # Fallback to approximate market rates with variation
-                print(f"Warning: Quote failed ({e}), using fallback pricing")
-                if limit_price is None:
-                    # Use market rate with ±10% variation for limit orders
-                    market_rate = self._get_market_rate_fallback(
-                        token_pair.sell_token.symbol,
-                        token_pair.buy_token.symbol,
-                    )
-                    price_variation = Decimal(str(random.uniform(0.9, 1.1)))
-                    limit_price = market_rate * price_variation
-                buy_amount_wei = self._calculate_buy_amount(
-                    sell_amount_wei,
-                    token_pair.sell_token.decimals,
-                    token_pair.buy_token.decimals,
-                    price=limit_price,
-                )
-                fee_amount_wei = 0  # Use zero fee in fallback mode
+            # Quote is required - if it fails, let the exception propagate
+            # The caller should retry with different parameters (amount, token pair, etc.)
+            quote = await self.api_client.get_quote(
+                sell_token=token_pair.sell_token.address,
+                buy_token=token_pair.buy_token.address,
+                sell_amount=str(sell_amount_wei),
+                from_address=trader_account.address,
+                kind=kind.value,
+                app_data=self.limit_app_data_hash,  # Include appData for accurate quote
+            )
+            # Use quoted buy amount (includes surplus for solver profitability)
+            # Fee is already accounted for in the quote, so we set feeAmount to 0
+            buy_amount_wei = int(quote["quote"]["buyAmount"])
+            fee_amount_wei = 0  # CoW Protocol: fee is included in buyAmount via surplus
         else:
             # No API client - use approximate market rates (dry-run mode)
             if limit_price is None:
