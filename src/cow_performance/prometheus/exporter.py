@@ -281,6 +281,15 @@ class PrometheusExporter:
                 self._metrics.container_network_tx_bytes.labels(container=container_name).set(
                     sample.network_tx_bytes
                 )
+                self._metrics.container_disk_read_bytes.labels(container=container_name).set(
+                    sample.block_read_bytes
+                )
+                self._metrics.container_disk_write_bytes.labels(container=container_name).set(
+                    sample.block_write_bytes
+                )
+                self._metrics.container_disk_usage_bytes.labels(container=container_name).set(
+                    sample.disk_usage_bytes
+                )
 
     # --- Manual Recording Methods (for direct updates) ---
 
@@ -410,6 +419,9 @@ class PrometheusExporter:
         network_rx_bytes: int = 0,
         network_tx_bytes: int = 0,
         memory_percent: float | None = None,
+        disk_read_bytes: int = 0,
+        disk_write_bytes: int = 0,
+        disk_usage_bytes: int = 0,
     ) -> None:
         """Update resource metrics for a container."""
         self._metrics.container_cpu_percent.labels(container=container).set(cpu_percent)
@@ -418,6 +430,9 @@ class PrometheusExporter:
             self._metrics.container_memory_percent.labels(container=container).set(memory_percent)
         self._metrics.container_network_rx_bytes.labels(container=container).set(network_rx_bytes)
         self._metrics.container_network_tx_bytes.labels(container=container).set(network_tx_bytes)
+        self._metrics.container_disk_read_bytes.labels(container=container).set(disk_read_bytes)
+        self._metrics.container_disk_write_bytes.labels(container=container).set(disk_write_bytes)
+        self._metrics.container_disk_usage_bytes.labels(container=container).set(disk_usage_bytes)
 
     # --- Trader Recording Methods (Phase 2) ---
 

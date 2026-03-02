@@ -195,6 +195,7 @@ class ResourceSample:
     network_tx_bytes: int = 0  # Network bytes transmitted
     block_read_bytes: int = 0  # Block I/O read
     block_write_bytes: int = 0  # Block I/O write
+    disk_usage_bytes: int = 0  # Total disk space used by container
 
     @property
     def memory_percent(self) -> float:

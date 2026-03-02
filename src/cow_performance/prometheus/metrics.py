@@ -229,6 +229,24 @@ class MetricsRegistry:
             ["container"],
             registry=self.registry,
         )
+        self.container_disk_read_bytes = Gauge(
+            "cow_perf_container_disk_read_bytes",
+            "Container disk bytes read",
+            ["container"],
+            registry=self.registry,
+        )
+        self.container_disk_write_bytes = Gauge(
+            "cow_perf_container_disk_write_bytes",
+            "Container disk bytes written",
+            ["container"],
+            registry=self.registry,
+        )
+        self.container_disk_usage_bytes = Gauge(
+            "cow_perf_container_disk_usage_bytes",
+            "Container total disk space usage in bytes",
+            ["container"],
+            registry=self.registry,
+        )
 
     def _init_trader_metrics(self) -> None:
         """Initialize per-trader metrics.
