@@ -119,7 +119,7 @@ async def run_performance_test(
         config: Performance test configuration
         traders: Optional override for number of traders
         duration: Optional override for test duration (seconds)
-        settlement_wait: Optional override for settlement wait time (seconds, default 300)
+        settlement_wait: Optional override for settlement wait time (seconds, default 900)
         verbose: Enable verbose output
         dry_run: Perform dry run without submitting orders
 
@@ -135,8 +135,8 @@ async def run_performance_test(
     num_traders = traders if traders is not None else config.default_trader_count
     test_duration = duration if duration is not None else config.default_duration
     settlement_wait_time = (
-        settlement_wait if settlement_wait is not None else 300.0
-    )  # Default 5 minutes
+        settlement_wait if settlement_wait is not None else 900.0
+    )  # Default 15 minutes
 
     if verbose:
         console.print("[bold cyan]Configuration:[/bold cyan]")
@@ -357,7 +357,7 @@ async def run_performance_test(
     # Create order tracker with metrics store
     order_tracker = OrderTracker(
         poll_interval=5.0,  # Poll every 5 seconds
-        max_poll_attempts=12,  # Up to 60 seconds
+        max_poll_attempts=180,  # Up to 900 seconds (15 minutes)
         metrics_store=metrics_store,
     )
 

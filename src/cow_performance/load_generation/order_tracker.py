@@ -31,7 +31,7 @@ class OrderTracker:
     def __init__(
         self,
         poll_interval: float = 5.0,
-        max_poll_attempts: int = 60,
+        max_poll_attempts: int = 180,
         metrics_store: MetricsStore | None = None,
     ):
         """
@@ -39,7 +39,7 @@ class OrderTracker:
 
         Args:
             poll_interval: Seconds between status polls (default 5.0)
-            max_poll_attempts: Maximum number of poll attempts before giving up (default 60)
+            max_poll_attempts: Maximum number of poll attempts before giving up (default 180)
             metrics_store: Optional MetricsStore for persisting order metrics
         """
         self.poll_interval = poll_interval
