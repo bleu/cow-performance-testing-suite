@@ -16,6 +16,8 @@ TOKEN_ADDRESSES = {
     "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
     "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "GNO": "0x6810e776880C02933D47DB1b9fc05908e5386b96",
 }
 
 # Storage slot positions for balanceOf mappings
@@ -23,6 +25,8 @@ TOKEN_BALANCE_SLOTS = {
     "WETH": 3,
     "DAI": 2,
     "USDC": 9,
+    "USDT": 2,
+    "GNO": 0,
 }
 
 # ERC20 ABI for approve function
@@ -79,7 +83,7 @@ def fund_wallet_with_token(
     Args:
         web3: Web3 instance connected to Anvil
         wallet_address: Address to fund
-        token_symbol: Token symbol (WETH, DAI, or USDC)
+        token_symbol: Token symbol (WETH, DAI, USDC, USDT, or GNO)
         amount: Amount of tokens (in standard units, e.g., 10.0 for 10 DAI)
 
     Raises:
@@ -92,13 +96,11 @@ def fund_wallet_with_token(
     token_address = TOKEN_ADDRESSES[token_symbol]
     balance_slot = TOKEN_BALANCE_SLOTS[token_symbol]
 
-    # Convert amount to wei (18 decimals for all these tokens)
-    # Note: USDC actually uses 6 decimals, but for simplicity we use 18 here
-    # In production, you'd check the token's decimals() function
-    if token_symbol == "USDC":
-        amount_wei = int(amount * 10**6)  # USDC has 6 decimals
+    # Convert amount to token's smallest unit based on decimals
+    if token_symbol in ("USDC", "USDT"):
+        amount_wei = int(amount * 10**6)  # USDC and USDT have 6 decimals
     else:
-        amount_wei = int(amount * 10**18)  # WETH and DAI have 18 decimals
+        amount_wei = int(amount * 10**18)  # WETH, DAI, and GNO have 18 decimals
 
     # Calculate storage slot for the wallet's balance
     # mapping(address => uint256) balanceOf -> slot = keccak256(address || slot)
@@ -121,7 +123,7 @@ def approve_token(
     Args:
         web3: Web3 instance
         trader_account: The trader's eth_account.Account instance
-        token_symbol: Token symbol (WETH, DAI, or USDC)
+        token_symbol: Token symbol (WETH, DAI, USDC, USDT, or GNO)
         spender: Address to approve (usually VaultRelayer)
         amount: Amount to approve (in standard units)
 
@@ -134,11 +136,11 @@ def approve_token(
 
     token_address = TOKEN_ADDRESSES[token_symbol]
 
-    # Convert amount to wei
-    if token_symbol == "USDC":
-        amount_wei = int(amount * 10**6)
+    # Convert amount to token's smallest unit based on decimals
+    if token_symbol in ("USDC", "USDT"):
+        amount_wei = int(amount * 10**6)  # USDC and USDT have 6 decimals
     else:
-        amount_wei = int(amount * 10**18)
+        amount_wei = int(amount * 10**18)  # WETH, DAI, and GNO have 18 decimals
 
     # Create contract instance
     token_contract = web3.eth.contract(

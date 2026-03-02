@@ -352,6 +352,18 @@ class PerformanceTestConfig(BaseSettings):
     stop_loss_order_ratio: float = Field(default=0.05, ge=0.0, le=1.0)
     good_after_time_order_ratio: float = Field(default=0.05, ge=0.0, le=1.0)
 
+    # Order amount configuration (in token units)
+    min_order_amount: float = Field(
+        default=0.1,
+        gt=0.0,
+        description="Minimum order amount in token units (ETH, DAI, etc.)",
+    )
+    max_order_amount: float = Field(
+        default=10.0,
+        gt=0.0,
+        description="Maximum order amount in token units (ETH, DAI, etc.)",
+    )
+
     @field_validator("trading_pattern")
     @classmethod
     def validate_trading_pattern(cls, v: str) -> str:
