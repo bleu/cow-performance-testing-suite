@@ -13,7 +13,10 @@ ANVIL_CMD="/usr/local/bin/anvil \
   --gas-limit 30000000 \
   --code-size-limit 50000 \
   --accounts 10 \
-  --balance 10000"
+  --balance 10000 \
+  --prune-history \
+  --no-storage-caching \
+  --silent"
 
 # Add fork-block-number if ETH_BLOCKNUMBER is set
 if [ -n "${ETH_BLOCKNUMBER}" ]; then

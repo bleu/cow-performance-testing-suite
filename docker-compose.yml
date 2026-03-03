@@ -20,9 +20,11 @@ services:
       - ./docker/anvil-entrypoint.sh:/entrypoint.sh:ro
     # Use tmpfs for Anvil state (in-memory, auto-cleanup, prevents disk accumulation)
     # Anvil stores state in /home/foundry/.foundry/anvil/tmp/
-    # Adjust size based on your test duration and memory availability
+    # Size increased to 16GB to accommodate state accumulation during long runs
+    # Adjust based on your test duration and available RAM
     tmpfs:
-      - /home/foundry/.foundry:size=4G,mode=1777
+      - /home/foundry/.foundry:size=16G,mode=1777
+      - /var/log:size=50m,mode=1777
     ports:
       - "8545:8545"
     dns:
