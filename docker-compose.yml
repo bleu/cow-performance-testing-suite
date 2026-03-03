@@ -131,6 +131,7 @@ services:
       - DISABLE_ORDER_FILTERING=true
     volumes:
       - ./modules/services:/src
+      - /src/target  # Anonymous volume: keeps Rust build artifacts in container (prevents 32GB on host)
     logging:
       driver: "json-file"
       options:

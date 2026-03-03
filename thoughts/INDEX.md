@@ -10,6 +10,7 @@
 | Find a ticket's details | [tickets/](#tickets) |
 | Find implementation approach | [plans/](#implementation-plans) |
 | Check what's been researched | [research/](#research) |
+| Review investigation reports | [reports/](#reports) |
 | Find reusable prompts | [prompts/](#prompts) |
 | Review code audits | [audits/](#audits) |
 
@@ -47,6 +48,7 @@ thoughts/
 ├── plans/             # Implementation plans for tickets
 ├── private/           # Internal-only (not committed; contents not listed here)
 ├── prompts/           # Reusable agent prompts
+├── reports/           # Investigation reports and analysis
 ├── research/          # Research and investigation documents
 └── tickets/           # Local copies of Linear tickets
 ```
@@ -133,6 +135,17 @@ Investigation and analysis documents created before implementation.
 | File | Related Ticket | Keywords |
 |------|----------------|----------|
 | _(none currently)_ | — | — |
+
+---
+
+## Reports
+
+Investigation reports and analysis of production issues, performance problems, and system behavior.
+
+| File | Date | Summary | Keywords |
+|------|------|---------|----------|
+| [docker-disk-usage-investigation.md](reports/docker-disk-usage-investigation.md) | 2026-03-03 | Docker disk space investigation: Root cause (32GB Rust build artifacts), solutions (anonymous volumes), and workflow impact | docker, disk-usage, rust, build-artifacts, volumes, orderbook |
+| [order-failure-analysis.md](reports/order-failure-analysis.md) | _(earlier)_ | Analysis of order failure patterns | orders, failures, analysis |
 
 ---
 
@@ -244,6 +257,7 @@ Find documents by topic:
 | `alertmanager` | COW-598 ticket |
 | `API` | COW-610 ticket, COW-610 plan |
 | `baseline` | COW-588 ticket, COW-588 plan |
+| `build-artifacts` | docker-disk-usage-investigation report |
 | `BaselineManager` | COW-588 plan |
 | `CLI` | 2026-01-26 plan |
 | `Cohen's-d` | COW-589 plan |
@@ -252,6 +266,8 @@ Find documents by topic:
 | `CSV` | COW-590 plan |
 | `dashboards` | COW-593 ticket |
 | `data-models` | COW-609 ticket, COW-609 plan |
+| `disk-usage` | docker-disk-usage-investigation report |
+| `docker` | docker-disk-usage-investigation report |
 | `documentation` | COW-608 ticket |
 | `export` | COW-609 plan |
 | `formatters` | COW-590 plan |
@@ -272,6 +288,7 @@ Find documents by topic:
 | `regression` | COW-589 ticket, COW-589 plan |
 | `ReportGenerator` | COW-590 plan |
 | `reporting` | COW-590 ticket, COW-590 plan |
+| `rust` | docker-disk-usage-investigation report |
 | `serialization` | COW-588 plan |
 | `statistics` | COW-589 plan |
 | `streaming` | COW-611 ticket, COW-611 plan |
@@ -280,12 +297,13 @@ Find documents by topic:
 | `Typer` | 2026-01-26 plan |
 | `validation` | COW-587 validation plan |
 | `visualization` | COW-593 ticket |
+| `volumes` | docker-disk-usage-investigation report |
 
 ---
 
 ## Maintenance Notes
 
-**Last Updated**: 2026-02-04 (added M3 tickets: COW-591, COW-593, COW-598)
+**Last Updated**: 2026-03-03 (added Reports section, docker-disk-usage-investigation report)
 
 ### How to Update This Index
 1. When adding new files, add entries to the appropriate section
