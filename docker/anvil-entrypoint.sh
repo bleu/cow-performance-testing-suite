@@ -15,7 +15,6 @@ ANVIL_CMD="/usr/local/bin/anvil \
   --accounts 10 \
   --balance 10000 \
   --prune-history \
-  --no-storage-caching \
   --silent"
 
 # Add fork-block-number if ETH_BLOCKNUMBER is set
