@@ -18,13 +18,8 @@ services:
       - ETH_BLOCKNUMBER=${ETH_BLOCKNUMBER:-}
     volumes:
       - ./docker/anvil-entrypoint.sh:/entrypoint.sh:ro
-    # Use tmpfs for Anvil state (in-memory, auto-cleanup, prevents disk accumulation)
-    # Anvil stores state in /home/foundry/.foundry/anvil/tmp/
-    # Size increased to 16GB to accommodate state accumulation during long runs
-    # Adjust based on your test duration and available RAM
-    tmpfs:
-      - /home/foundry/.foundry:size=16G,mode=1777
-      - /var/log:size=50m,mode=1777
+    # Note: tmpfs NOT needed - Anvil with --prune-history keeps state in process memory only
+    # No disk/tmpfs accumulation occurs (verified 0% usage)
     ports:
       - "8545:8545"
     dns:

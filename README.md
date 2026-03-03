@@ -92,9 +92,10 @@ The Docker environment is optimized to prevent excessive disk usage, but monitor
 
 ### Built-in Protections
 
-- **Chain container (Anvil)**: Uses tmpfs (in-memory storage) with 2GB limit
+- **Chain container (Anvil)**: Uses `--prune-history` flag to keep state in process memory only (no disk accumulation)
 - **Container logs**: Limited to 10MB per file, max 3 files (30MB total per service)
 - **Prometheus data**: Retention limited to 7 days and 1GB
+- **Rust build artifacts**: Stored in Docker volumes (not on host disk)
 
 ### Monitoring Disk Usage
 
