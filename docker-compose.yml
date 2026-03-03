@@ -18,11 +18,21 @@ services:
       - ETH_BLOCKNUMBER=${ETH_BLOCKNUMBER:-}
     volumes:
       - ./docker/anvil-entrypoint.sh:/entrypoint.sh:ro
+    # Use tmpfs for chain state (in-memory, auto-cleanup, prevents disk accumulation)
+    # Adjust size based on your test duration and memory availability
+    tmpfs:
+      - /tmp/anvil:size=2G,mode=1777
     ports:
       - "8545:8545"
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    # Limit container logs to prevent disk accumulation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       # Healthcheck that also patches the authenticator contract to allow any solver
       test: ["CMD-SHELL", "
@@ -50,6 +60,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -116,6 +131,11 @@ services:
       - DISABLE_ORDER_FILTERING=true
     volumes:
       - ./modules/services:/src
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db-migrations:
         condition: service_completed_successfully
@@ -157,6 +177,11 @@ services:
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=UniswapV2
       - RUST_BACKTRACE=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -176,6 +201,11 @@ services:
     command: ["run", "--config-path", "/config.json"]
     volumes:
       - ./config/watch-tower-config.json:/config.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       orderbook:
         condition: service_healthy
@@ -202,6 +232,11 @@ services:
     volumes:
       - ./configs/driver.toml:/driver.toml.template:ro
       - ./docker/driver-entrypoint.sh:/entrypoint.sh:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -222,6 +257,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -241,6 +281,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -260,6 +305,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -277,6 +327,8 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=1GB'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
     ports:
@@ -285,6 +337,11 @@ services:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./configs/prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     profiles:
       - monitoring
 
@@ -304,6 +361,11 @@ services:
       - ./configs/grafana-dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
       - ./configs/dashboards:/etc/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       - prometheus
     profiles:

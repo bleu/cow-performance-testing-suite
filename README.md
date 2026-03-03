@@ -86,6 +86,54 @@ Prometheus metrics export is **enabled by default** (port 9091). To use the full
 
 For detailed setup and troubleshooting, see [Development Guide](docs/development.md).
 
+## Disk Management
+
+The Docker environment is optimized to prevent excessive disk usage, but monitoring is still recommended:
+
+### Built-in Protections
+
+- **Chain container (Anvil)**: Uses tmpfs (in-memory storage) with 2GB limit
+- **Container logs**: Limited to 10MB per file, max 3 files (30MB total per service)
+- **Prometheus data**: Retention limited to 7 days and 1GB
+
+### Monitoring Disk Usage
+
+```bash
+# Check Docker disk usage
+docker system df
+
+# Monitor specific container disk usage
+docker stats --no-stream
+```
+
+### Cleanup Options
+
+**Quick cleanup** (recommended for regular use):
+```bash
+# Stop containers (preserves images and volumes)
+docker compose down
+
+# Remove stopped containers and unused images
+docker system prune -f
+```
+
+**Deep cleanup** (if disk space is critical):
+```bash
+# Use the automated cleanup script
+./hack/cleanup-docker.sh
+
+# Or manual cleanup with volumes (⚠️  data loss)
+docker compose down -v
+docker system prune -a -f --volumes
+```
+
+**After cleanup**, restart services:
+```bash
+docker compose up -d
+```
+
+> **Note**: First startup after cleanup may be slower due to image rebuilding and database migrations.
+
 ## Documentation
 
 | Topic | Document |
