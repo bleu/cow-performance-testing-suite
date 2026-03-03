@@ -56,13 +56,16 @@ The real problem was **Rust compilation artifacts** accumulating on the host fil
 - Dependencies (debug + release): ~7GB
 - Total: **32GB on your host machine**
 
-### Why Anvil Was NOT the Problem
+### Anvil State Storage (Secondary Issue)
 
-Anvil stores blockchain state **entirely in RAM** by default:
-- No `--state` flag in configuration
-- Container writable layer: only 12.3kB
-- Monitored for 2 minutes during test: **zero growth**
-- tmpfs mount added was unnecessary (Anvil never wrote to disk)
+**Initial assumption**: Anvil stores blockchain state entirely in RAM by default.
+
+**Reality**: While Anvil doesn't persist state to disk with the `--state` flag, it **does write state to disk** at `/home/foundry/.foundry/anvil/tmp/` during operation, causing the container writable layer to grow:
+
+- Initial size: 20.5kB
+- After running: 2.3GB → 3.27GB → 3.81GB (growing ~60MB/min)
+- **Solution**: Mount tmpfs at `/home/foundry/.foundry:size=4G` to keep state in memory
+- **Result**: Container writable layer stays at ~20kB ✅
 
 ## The Solution
 
@@ -84,6 +87,26 @@ orderbook:
 - `/src/target` is overridden by an anonymous volume
 - Build artifacts go to Docker's internal storage (not host)
 - Container is destroyed → artifacts automatically cleaned up
+
+#### 1a. **Anvil State in tmpfs** (docker-compose.yml)
+
+While investigating the initial fix, we discovered Anvil was still accumulating state on disk (growing from 20kB to 3.8GB). The issue was the tmpfs mount path was incorrect.
+
+**Initial attempt** (incorrect):
+```yaml
+chain:
+  tmpfs:
+    - /tmp/anvil:size=2G  # ❌ Wrong path
+```
+
+**Corrected implementation**:
+```yaml
+chain:
+  tmpfs:
+    - /home/foundry/.foundry:size=4G,mode=1777  # ✅ Correct path where Anvil stores state
+```
+
+**Result**: Chain container writable layer stays at ~20kB (Anvil state stored in memory)
 
 #### 2. **Log Rotation** (docker-compose.yml)
 
@@ -205,10 +228,11 @@ Local Volumes   42MB      0%
 Build Cache     15GB      100% (can prune)
 ```
 
-**Container sizes**:
-- chain: ~12kB writable layer
+**Container sizes** (after both fixes):
+- chain: ~20kB writable layer (Anvil state in tmpfs)
 - orderbook: ~900MB (Cargo registry cache, stable)
 - db: ~20kB writable layer
+- Rust build artifacts: ~7.4GB in Docker volume (was 32GB on host)
 
 ### Long-Running Test Verification
 
@@ -237,9 +261,14 @@ Time     | Orders | Chain   | Orderbook | DB      | Tmpfs
    - Added Prometheus retention limits
    - Created cleanup script
 
-3. **[Pending]**: `fix(docker): prevent Rust build artifacts on host`
+3. **7f9296f**: `fix(docker): prevent Rust build artifacts on host`
    - Add anonymous volume for `/src/target`
    - Update documentation
+   - Created investigation report
+
+4. **[Pending]**: `fix(docker): correct tmpfs mount path for Anvil state`
+   - Changed tmpfs from `/tmp/anvil:size=2G` to `/home/foundry/.foundry:size=4G`
+   - Verified chain container writable layer stays at ~20kB
 
 ### Documentation Updates
 
@@ -286,8 +315,10 @@ If you want to prevent Docker from ever using too much space:
 1. **Bind mounts expose host filesystem**: Be careful what directories are mounted
 2. **Build artifacts can be huge**: Rust's target/ directory grows to 30GB+
 3. **Anonymous volumes are powerful**: Override specific paths while keeping others mounted
-4. **Assumptions need verification**: Chain container was never the problem
-5. **Monitor before fixing**: Data-driven debugging reveals the real issue
+4. **Assumptions need verification**: Initial assumption about Anvil storing state in RAM was incorrect
+5. **Monitor before AND after fixing**: Data-driven debugging reveals the issue, monitoring confirms the fix
+6. **Read the documentation carefully**: Anvil stores state at `/home/foundry/.foundry/anvil/tmp/`, not `/tmp/anvil`
+7. **Verify tmpfs mounts**: Use `docker exec <container> df -h` to confirm tmpfs is actually being used
 
 ## Appendix: Technical Details
 
