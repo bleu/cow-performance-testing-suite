@@ -179,7 +179,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(cow_perf_trader_orders_submitted) / cow_perf_num_traders{scenario=~\"$scenario\"}",
+          "expr": "sum(cow_perf_trader_orders_submitted_total) / cow_perf_num_traders{scenario=~\"$scenario\"}",
           "legendFormat": "Avg",
           "refId": "A"
         }
@@ -225,7 +225,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(cow_perf_trader_orders_filled) / sum(cow_perf_trader_orders_submitted) * 100",
+          "expr": "sum(cow_perf_trader_orders_filled_total) / sum(cow_perf_trader_orders_submitted_total) * 100",
           "legendFormat": "Fill Rate",
           "refId": "A"
         }
@@ -289,7 +289,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "topk($top_n, cow_perf_trader_orders_submitted)",
+          "expr": "topk($top_n, cow_perf_trader_orders_submitted_total)",
           "legendFormat": "Trader {{trader_index}}",
           "refId": "A"
         }
@@ -345,7 +345,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "topk($top_n, cow_perf_trader_orders_filled)",
+          "expr": "topk($top_n, cow_perf_trader_orders_filled_total)",
           "legendFormat": "Trader {{trader_index}}",
           "refId": "A"
         }
@@ -465,7 +465,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "topk($top_n, rate(cow_perf_trader_orders_submitted[1m]))",
+          "expr": "topk($top_n, rate(cow_perf_trader_orders_submitted_total[1m]))",
           "legendFormat": "Trader {{trader_index}}",
           "refId": "A"
         }
@@ -513,7 +513,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "topk($top_n, cow_perf_trader_orders_submitted)",
+          "expr": "topk($top_n, cow_perf_trader_orders_submitted_total)",
           "legendFormat": "Trader {{trader_index}}",
           "refId": "A"
         }
@@ -588,7 +588,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "cow_perf_trader_orders_submitted",
+          "expr": "cow_perf_trader_orders_submitted_total",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -596,7 +596,7 @@
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "cow_perf_trader_orders_filled",
+          "expr": "cow_perf_trader_orders_filled_total",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -604,7 +604,7 @@
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "cow_perf_trader_orders_filled / cow_perf_trader_orders_submitted * 100",
+          "expr": "cow_perf_trader_orders_filled_total / cow_perf_trader_orders_submitted_total * 100",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",

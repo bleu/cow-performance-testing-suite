@@ -223,6 +223,19 @@ class ResourceMonitor:
             rx_bytes, tx_bytes = self._extract_network_stats(stats)
             read_bytes, write_bytes = self._extract_block_io_stats(stats)
 
+            # Get disk usage from container size
+            # Use Docker's containers/json API endpoint with size parameter
+            disk_usage = 0
+            try:
+                # The size info is only available via the containers list endpoint with size=true
+                client = self._get_docker_client()
+                containers_data = client.api.containers(filters={"id": container.id}, size=True)
+                if containers_data:
+                    # SizeRw is the writable layer size
+                    disk_usage = containers_data[0].get("SizeRw", 0)
+            except Exception as e:
+                logger.debug(f"Failed to get disk usage for {container_name}: {e}")
+
             return ResourceSample(
                 timestamp=time.time(),
                 cpu_percent=cpu_percent,
@@ -232,6 +245,7 @@ class ResourceMonitor:
                 network_tx_bytes=tx_bytes,
                 block_read_bytes=read_bytes,
                 block_write_bytes=write_bytes,
+                disk_usage_bytes=disk_usage,
             )
         except ContainerNotFound:
             logger.warning(f"Container {container_name} not found, removing from monitoring")

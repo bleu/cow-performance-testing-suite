@@ -31,7 +31,7 @@ class OrderTracker:
     def __init__(
         self,
         poll_interval: float = 5.0,
-        max_poll_attempts: int = 60,
+        max_poll_attempts: int = 180,
         metrics_store: MetricsStore | None = None,
     ):
         """
@@ -39,7 +39,7 @@ class OrderTracker:
 
         Args:
             poll_interval: Seconds between status polls (default 5.0)
-            max_poll_attempts: Maximum number of poll attempts before giving up (default 60)
+            max_poll_attempts: Maximum number of poll attempts before giving up (default 180)
             metrics_store: Optional MetricsStore for persisting order metrics
         """
         self.poll_interval = poll_interval
@@ -157,6 +157,10 @@ class OrderTracker:
             metadata.filled_amount = filled_amount
         if error_message is not None:
             metadata.error_message = error_message
+
+        # Notify metrics store to trigger Prometheus exporter callbacks
+        if self._metrics_store is not None:
+            self._metrics_store.add_order(metadata)
 
     async def poll_order_status(
         self,
