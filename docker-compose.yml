@@ -129,7 +129,7 @@ services:
       - DISABLE_ORDER_FILTERING=true
     volumes:
       - ./modules/services:/src
-      - /src/target  # Anonymous volume: keeps Rust build artifacts in container (prevents 32GB on host)
+      - orderbook_target:/src/target  # Named volume: persists across restarts, no duplicates
     logging:
       driver: "json-file"
       options:
@@ -374,6 +374,7 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  orderbook_target:  # Named volume for Rust build artifacts (prevents duplicates on restart)
 
 networks:
   default:
