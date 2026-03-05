@@ -15,8 +15,10 @@ wallet:
   funding_enabled: true
   eth_balance: 10.0
   token_balances:
-    WETH: 5.0
-    DAI: 5000.0
+    WETH: 10.0
+    DAI: 10000.0
+    USDC: 10000.0
+    USDT: 10000.0
 
 # Trading pattern: Poisson (realistic user behavior)
 trading_pattern: "poisson"

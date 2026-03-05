@@ -82,6 +82,22 @@ def run(
         "--prometheus-port",
         help="Port for Prometheus metrics exporter (default: 9091 from config, use 0 to disable)",
     ),
+    save_baseline: Optional[str] = typer.Option(
+        None,
+        "--save-baseline",
+        "-b",
+        help="Save test results as a baseline with the given name",
+    ),
+    baseline_description: Optional[str] = typer.Option(
+        None,
+        "--baseline-description",
+        help="Description for the saved baseline",
+    ),
+    baseline_tags: Optional[str] = typer.Option(
+        None,
+        "--baseline-tags",
+        help="Comma-separated tags for the baseline (e.g., 'production,v1.0')",
+    ),
 ) -> None:
     """Run a performance test.
 
@@ -101,6 +117,9 @@ def run(
         # Save results to file
         cow-perf run --save
 
+        # Save as baseline for later comparison
+        cow-perf run --save-baseline "v1.0" --baseline-description "Initial baseline"
+
         # Dry run (no actual order submission)
         cow-perf run --dry-run
     """
@@ -116,6 +135,11 @@ def run(
         if effective_prometheus_port == 0:
             effective_prometheus_port = None
 
+        # Parse baseline tags from comma-separated string
+        parsed_tags = None
+        if baseline_tags:
+            parsed_tags = [tag.strip() for tag in baseline_tags.split(",") if tag.strip()]
+
         # Run the test
         run_command(
             config=cfg,
@@ -128,6 +152,9 @@ def run(
             verbose=verbose,
             dry_run=dry_run,
             prometheus_port=effective_prometheus_port,
+            save_baseline=save_baseline,
+            baseline_description=baseline_description or "",
+            baseline_tags=parsed_tags,
         )
 
     except FileNotFoundError as e:

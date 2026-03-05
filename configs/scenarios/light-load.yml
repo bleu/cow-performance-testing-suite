@@ -15,11 +15,10 @@ wallet:
   funding_enabled: true
   eth_balance: 10.0
   token_balances:
-    WETH: 5.0
-    DAI: 5000.0
-    USDC: 5000.0
-    USDT: 5000.0
-    GNO: 10.0
+    WETH: 10.0
+    DAI: 10000.0
+    USDC: 10000.0
+    USDT: 10000.0
 
 # Trading pattern: Constant rate (simple and predictable)
 trading_pattern: "constant_rate"
@@ -32,12 +31,11 @@ twap_order_ratio: 0.0
 stop_loss_order_ratio: 0.0
 good_after_time_order_ratio: 0.0
 
-# Order amount configuration (increased to cover gas fees)
-# Min ~$2000 USD / 1 ETH, Max ~$10000 USD / 5 ETH
-# Note: With current gas estimation (~3-4 gwei) and complex routes (286k gas),
-# fees can be ~1-2 ETH equivalent, so orders need to be larger
-min_order_amount: 1.0
-max_order_amount: 5.0
+# Order amount configuration (optimized for baseline solver)
+# Smaller amounts have better chance of being filled by AMM pools
+# Focus on 0.1-2.0 ETH/token range for reliable execution
+min_order_amount: 0.1
+max_order_amount: 2.0
 
 # No rate limiting needed for light load
 enable_global_rate_limit: false

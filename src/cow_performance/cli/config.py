@@ -116,7 +116,7 @@ class OutputConfig(BaseSettings):
         description="Save results to file",
     )
     results_dir: Path = Field(
-        default=Path.home() / ".cow-perf" / "results",
+        default=Path(".cow-perf") / "results",
         description="Directory to save results",
     )
 
@@ -531,7 +531,7 @@ output:
   format: "json"  # json, table, csv, prometheus
   verbose: false
   save_results: false
-  results_dir: "~/.cow-perf/results"
+  results_dir: ".cow-perf/results"
 
 # Wallet configuration for trader accounts
 wallet:
