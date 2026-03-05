@@ -147,10 +147,94 @@ The system uses pattern matching to discover containers:
 - `solver-{any-type}-*` - Any other solver type
 
 **Adding more solvers**:
-1. Add new solver services to `docker-compose.yml` (e.g., `solver-baseline-4`, `solver-quasimodo-1`)
-2. Start containers: `docker compose up -d`
-3. Run test: `cow-perf run --save-baseline "test-name"`
-4. Reports automatically include all solvers!
+
+Follow these steps to add a new solver (e.g., adding a 4th baseline solver or a new quasimodo solver):
+
+1. **Add solver service to `docker-compose.yml`**:
+   ```yaml
+   # For a 4th baseline solver:
+   solver-baseline-4:
+     build:
+       context: ./modules/services
+       target: solvers
+     command: ["baseline", "--config", "/baseline.toml"]
+     volumes:
+       - ./configs/baseline.toml:/baseline.toml:ro
+     networks:
+       - cownet
+
+   # OR for a quasimodo solver:
+   solver-quasimodo-1:
+     build:
+       context: ./modules/services
+       target: solvers
+     command: ["quasimodo", "--config", "/quasimodo.toml"]
+     volumes:
+       - ./configs/quasimodo.toml:/quasimodo.toml:ro
+     networks:
+       - cownet
+   ```
+
+2. **Update autopilot environment variables** in `docker-compose.yml`:
+   ```yaml
+   # Add new solver to the DRIVERS list:
+   - DRIVERS=solver-baseline-1|http://driver/solver-baseline-1|${SOLVER_ADDRESS},solver-baseline-2|http://driver/solver-baseline-2|${SOLVER_ADDRESS},solver-baseline-3|http://driver/solver-baseline-3|${SOLVER_ADDRESS},solver-baseline-4|http://driver/solver-baseline-4|${SOLVER_ADDRESS}
+
+   # Add to PRICE_ESTIMATION_DRIVERS:
+   - PRICE_ESTIMATION_DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3,solver-baseline-4|http://driver/solver-baseline-4
+
+   # Add to NATIVE_PRICE_ESTIMATORS:
+   - NATIVE_PRICE_ESTIMATORS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3,solver-baseline-4|http://driver/solver-baseline-4
+   ```
+
+3. **Update orderbook environment variables** in `docker-compose.yml`:
+   ```yaml
+   # Add new solver to these same lists (same format as autopilot)
+   - DRIVERS=...
+   - PRICE_ESTIMATION_DRIVERS=...
+   - NATIVE_PRICE_ESTIMATORS=...
+   ```
+
+4. **Add solver configuration to `configs/driver.toml`**:
+   ```toml
+   [[solver]]
+   name = "solver-baseline-4"
+   endpoint = "http://solver-baseline-4"
+   absolute-slippage = "40000000000000000"
+   relative-slippage = "0.1"
+   account = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+   ```
+
+5. **Build and start containers**:
+   ```bash
+   # Build new solver image (first time only)
+   docker compose build solver-baseline-4
+
+   # Start all services
+   docker compose up -d
+
+   # Verify solver is running
+   docker compose ps | grep solver-baseline-4
+
+   # Check solver logs
+   docker compose logs -f solver-baseline-4
+   ```
+
+6. **Verify driver can reach the solver**:
+   ```bash
+   # Check driver logs for successful solver mounting
+   docker compose logs driver | grep "mounting solver"
+   # Should show: mounting solver solver=solver-baseline-4 path="/solver-baseline-4"
+   ```
+
+7. **Run a test to verify**:
+   ```bash
+   cow-perf run --config configs/scenarios/light-load.yml --duration 30
+   ```
+
+8. **Check report** - the new solver will automatically appear in resource metrics!
+
+The system will automatically discover and track any container with `solver` in its name - no code changes needed!
 
 **Example report output**:
 ```
