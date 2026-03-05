@@ -4,6 +4,36 @@
 
 - **Check `thoughts/INDEX.md` first** - This index catalogs all existing plans, research, tickets, and prompts. Review it to avoid duplicating work that's already been done.
 
+## Git & Version Control
+
+### Commit Message Format
+
+Use this format for commit messages (multiple changes can be listed separated by semicolons):
+
+```
+feat: Added [new feature/functionality];
+fix: Fixed [issue] by [solution];
+chore: Updated [file] with [changes];
+refactor: Changed [what was changed];
+test: Updated [test description];
+docs: Added/Updated [documentation description];
+```
+
+**Examples**:
+```
+feat: Added automatic discovery for multiple solver types using pattern matching;
+fix: Fixed driver configuration endpoints preventing orders from being filled;
+chore: Updated README.md with step-by-step guide for adding new solvers;
+refactor: Changed solver naming from baseline-* to solver-baseline-* for better scalability;
+test: Updated test expectations to match new solver naming patterns;
+```
+
+**Rules**:
+- Use semicolons to separate multiple changes in one commit
+- Start each line with a conventional commit type (feat, fix, chore, refactor, test, docs)
+- Be specific about what was added/fixed/changed
+- For fixes, mention both the problem and solution when relevant
+
 ## Ticket & Task Management
 
 - **NEVER update Linear directly** - Do not use Linear MCP tools to update ticket unless explicitly asked with words like "update Linear" or "sync to Linear"
