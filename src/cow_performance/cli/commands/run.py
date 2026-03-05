@@ -13,6 +13,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from web3 import Web3
 
 from cow_performance.api import InstrumentedOrderbookClient, OrderbookClient
+from cow_performance.baselines import BaselineManager
 from cow_performance.cli.live_display import create_performance_metrics_dict
 from cow_performance.load_generation import (
     ConditionalOrderFactory,
@@ -119,7 +120,7 @@ async def run_performance_test(
         config: Performance test configuration
         traders: Optional override for number of traders
         duration: Optional override for test duration (seconds)
-        settlement_wait: Optional override for settlement wait time (seconds, default 900)
+        settlement_wait: Optional override for settlement wait time (seconds, default 180)
         verbose: Enable verbose output
         dry_run: Perform dry run without submitting orders
 
@@ -135,8 +136,8 @@ async def run_performance_test(
     num_traders = traders if traders is not None else config.default_trader_count
     test_duration = duration if duration is not None else config.default_duration
     settlement_wait_time = (
-        settlement_wait if settlement_wait is not None else 900.0
-    )  # Default 15 minutes
+        settlement_wait if settlement_wait is not None else 180.0
+    )  # Default 3 minutes (sufficient for 120s order validity)
 
     if verbose:
         console.print("[bold cyan]Configuration:[/bold cyan]")
@@ -358,7 +359,7 @@ async def run_performance_test(
     # Create order tracker with metrics store
     order_tracker = OrderTracker(
         poll_interval=5.0,  # Poll every 5 seconds
-        max_poll_attempts=180,  # Up to 900 seconds (15 minutes)
+        max_poll_attempts=36,  # Up to 180 seconds (3 minutes)
         metrics_store=metrics_store,
     )
 
@@ -576,6 +577,9 @@ async def run_performance_test(
     # Add metrics store summary (API metrics, resource metrics)
     metrics["metrics_store"] = metrics_store.summary()
 
+    # Also include the actual MetricsStore object for baseline creation
+    metrics["_metrics_store_object"] = metrics_store
+
     return metrics
 
 
@@ -590,6 +594,9 @@ def run_command(
     verbose: bool = False,
     dry_run: bool = False,
     prometheus_port: int | None = None,
+    save_baseline: str | None = None,
+    baseline_description: str = "",
+    baseline_tags: list[str] | None = None,
 ) -> None:
     """Run command entry point.
 
@@ -604,6 +611,9 @@ def run_command(
         verbose: Enable verbose output
         dry_run: Perform dry run without submitting orders
         prometheus_port: Optional port for Prometheus metrics exporter
+        save_baseline: Optional baseline name to save after test completes
+        baseline_description: Optional description for the baseline
+        baseline_tags: Optional list of tags for the baseline
 
     Raises:
         SystemExit: On error (with appropriate exit code)
@@ -626,6 +636,9 @@ def run_command(
                 prometheus_port=prometheus_port,
             )
         )
+
+        # Extract MetricsStore object before formatting (not JSON serializable)
+        metrics_store_obj = metrics.pop("_metrics_store_object", None)
 
         # Determine output format
         fmt = output_format or config.output.format
@@ -665,6 +678,46 @@ def run_command(
 
             save_metrics_to_file(metrics, save_fmt, output_path)
             console.print(f"\n[bold green]✓[/bold green] Results saved to: {output_path}")
+
+        # Save baseline if requested
+        if save_baseline:
+            try:
+                if not metrics_store_obj:
+                    console.print(
+                        "[bold yellow]Warning:[/bold yellow] MetricsStore not available, baseline not saved"
+                    )
+                else:
+                    # Extract test parameters from metrics
+                    orchestration = metrics.get("orchestration", {})
+
+                    # Prepare config dict for baseline
+                    baseline_config = {
+                        "scenario_name": config.trading_pattern,
+                        "duration_seconds": float(orchestration.get("duration", 0)),
+                        "num_traders": orchestration.get("num_traders", 0),
+                        "base_rate": config.base_rate,
+                        "market_order_ratio": config.market_order_ratio,
+                        "limit_order_ratio": config.limit_order_ratio,
+                    }
+
+                    # Create baseline manager and save
+                    manager = BaselineManager()
+                    baseline = manager.save(
+                        name=save_baseline,
+                        metrics_store=metrics_store_obj,
+                        config=baseline_config,
+                        description=baseline_description,
+                        tags=baseline_tags,
+                    )
+
+                    console.print(
+                        f"[bold green]✓[/bold green] Baseline saved: {baseline.name} (ID: {baseline.id[:8]}...)"
+                    )
+                    console.print(f"  Location: .cow-perf/baselines/{baseline.id}.json")
+            except Exception as e:
+                console.print(f"[bold red]Error saving baseline:[/bold red] {e}")
+                if verbose:
+                    console.print_exception()
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Test interrupted by user[/yellow]")

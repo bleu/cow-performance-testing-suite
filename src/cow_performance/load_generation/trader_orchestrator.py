@@ -617,9 +617,7 @@ class TraderOrchestrator:
             "orders": {
                 "total_submitted": self.trader_pool.get_total_orders_submitted(),
                 "total_tracked": order_metrics.total_orders,
-                # Non-terminal states
-                "orders_created": order_metrics.orders_created,
-                "orders_submitted": order_metrics.orders_submitted,
+                # Current states
                 "orders_open": order_metrics.orders_accepted,  # Includes both ACCEPTED and OPEN status
                 # Terminal states
                 "orders_filled": order_metrics.orders_filled,

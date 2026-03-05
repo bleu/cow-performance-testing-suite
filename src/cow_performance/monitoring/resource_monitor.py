@@ -25,7 +25,7 @@ DEFAULT_SERVICE_PATTERNS = [
     "orderbook",
     "autopilot",
     "driver",
-    "baseline",
+    "solver",  # Matches all solver types (baseline, quasimodo, etc.)
     "chain",
 ]
 

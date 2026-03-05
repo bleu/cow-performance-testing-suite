@@ -58,6 +58,162 @@ Comprehensive performance testing suite for the CoW Protocol Playground, enablin
    cow-perf run --config configs/scenarios/light-load.yml
    ```
 
+## Reports & Baselines
+
+Save performance baselines and generate comprehensive reports with regression detection.
+
+### Save Baseline After Test
+
+Run a test and automatically save the results as a baseline for future comparisons:
+
+```bash
+# Run test and save as baseline
+cow-perf run --config configs/scenarios/light-load.yml \
+  --save-baseline "v1.0" \
+  --baseline-description "Production baseline" \
+  --baseline-tags "production,release"
+```
+
+**Saved to**: `.cow-perf/baselines/{uuid}.json`
+
+### Generate Reports
+
+Generate performance reports from saved baselines in multiple formats:
+
+```bash
+# Text report to console (default)
+cow-perf report generate v1.0
+
+# Save report to file (.cow-perf/reports/)
+cow-perf report generate v1.0 --save
+
+# Markdown report (GitHub-friendly)
+cow-perf report generate v1.0 -f markdown --save
+
+# JSON report (machine-readable)
+cow-perf report generate v1.0 -f json --save
+
+# With CSV exports
+cow-perf report generate v1.0 --save --export-csv
+```
+
+**Saved to**:
+- Reports: `.cow-perf/reports/report-{baseline}-{timestamp}.{format}`
+- CSV files: `.cow-perf/reports/csv/{baseline}/summary.csv`, `latencies.csv`, `recommendations.csv`
+
+### Compare Baselines (Regression Detection)
+
+Compare two baselines to detect performance regressions or improvements:
+
+```bash
+# Compare current against previous baseline
+cow-perf report generate v2.0 --compare v1.0 --save
+
+# With markdown format for GitHub PRs
+cow-perf report generate v2.0 --compare v1.0 -f markdown --save
+```
+
+The comparison report shows:
+- ✅ **Improvements**: Metrics that got better
+- ⚠️ **Regressions**: Metrics that got worse (with severity: minor/major/critical)
+- 📊 **Percent changes**: For all key metrics
+- 🔧 **Recommendations**: Actionable insights based on the comparison
+
+### Manage Baselines
+
+```bash
+# List all saved baselines
+cow-perf baselines --list
+
+# Show detailed baseline info
+cow-perf baselines --show v1.0
+
+# Delete old baseline
+cow-perf baselines --delete old-baseline
+```
+
+### Multiple Solver Tracking
+
+**All solver containers are automatically tracked** - no configuration needed!
+
+The system uses pattern matching to discover containers:
+- Any container with `solver` in its name is tracked (e.g., `solver-baseline-1`, `solver-quasimodo-1`)
+- Each solver gets separate resource metrics (CPU, memory, network I/O)
+- Reports show per-solver performance
+
+**Supported solver types**:
+- `solver-baseline-*` - Baseline solver instances
+- `solver-quasimodo-*` - Quasimodo solver instances
+- `solver-{any-type}-*` - Any other solver type
+
+**Adding more solvers**:
+1. Add new solver services to `docker-compose.yml` (e.g., `solver-baseline-4`, `solver-quasimodo-1`)
+2. Start containers: `docker compose up -d`
+3. Run test: `cow-perf run --save-baseline "test-name"`
+4. Reports automatically include all solvers!
+
+**Example report output**:
+```
+Resource Utilization:
+  Container              CPU(P95)  Memory(P95)
+  -----------------------------------------------
+  solver-baseline-1        38.8%       11.0%
+  solver-baseline-2        43.8%       12.0%
+  solver-baseline-3        48.8%       13.0%
+  solver-quasimodo-1       35.2%       10.5%
+  solver-quasimodo-2       41.1%       11.8%
+```
+
+When comparing baselines, per-solver improvements/regressions are shown:
+```
+Improvements:
+  - resource_solver-baseline-1_cpu: -51.5% (improved)
+  - resource_solver-baseline-2_cpu: -9.1% (improved)
+  - resource_solver-quasimodo-1_cpu: -12.3% (improved)
+```
+
+### Complete Workflow Example
+
+```bash
+# 1. Run initial test and save baseline
+cow-perf run --config configs/scenarios/medium-load.yml \
+  --save-baseline "before-optimization" \
+  --baseline-description "Performance before optimization work"
+
+# 2. Make code changes, run new test
+cow-perf run --config configs/scenarios/medium-load.yml \
+  --save-baseline "after-optimization" \
+  --baseline-description "Performance after optimization"
+
+# 3. Generate comparison report
+cow-perf report generate after-optimization \
+  --compare before-optimization \
+  -f markdown \
+  --save \
+  --export-csv
+
+# 4. View results
+cat .cow-perf/reports/report-after-optimization-vs-before-optimization-*.md
+```
+
+All files are saved in your project directory under `.cow-perf/`:
+```
+.cow-perf/
+├── baselines/              # Saved performance baselines
+├── reports/                # Generated reports
+│   ├── report-*.txt
+│   ├── report-*.md
+│   ├── report-*.json
+│   └── csv/               # CSV exports
+│       └── {baseline}/
+│           ├── summary.csv
+│           ├── latencies.csv
+│           └── recommendations.csv
+└── results/               # Raw test results
+```
+
+See `.cow-perf/README.md` for detailed documentation on the data directory structure.
+
 ## Monitoring & Visualization
 
 Prometheus metrics export is **enabled by default** (port 9091). To use the full monitoring stack:

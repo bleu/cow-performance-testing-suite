@@ -108,9 +108,9 @@ services:
       - EIP1271_SKIP_CREATION_VALIDATION=true
       - ENABLE_EIP1271_ORDERS=true
       - PRICE_ESTIMATORS=None
-      - PRICE_ESTIMATION_DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - NATIVE_PRICE_ESTIMATORS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
+      - PRICE_ESTIMATION_DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - NATIVE_PRICE_ESTIMATORS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
       - BIND_ADDRESS=0.0.0.0:80
       - CHAIN_ID=1
       - BASELINE_SOURCES=UniswapV2
@@ -164,9 +164,9 @@ services:
       - DB_READ_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
       - SIMULATION_NODE_URL=http://chain:8545
       - LOG_FILTER=warn,autopilot=info,shared=info
-      - DRIVERS=baseline-1|http://driver/baseline-1|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},baseline-2|http://driver/baseline-2|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},baseline-3|http://driver/baseline-3|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
-      - PRICE_ESTIMATION_DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - NATIVE_PRICE_ESTIMATORS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
+      - DRIVERS=solver-baseline-1|http://driver/solver-baseline-1|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},solver-baseline-2|http://driver/solver-baseline-2|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},solver-baseline-3|http://driver/solver-baseline-3|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
+      - PRICE_ESTIMATION_DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - NATIVE_PRICE_ESTIMATORS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
       - SETTLE_INTERVAL=15s
       - GAS_ESTIMATORS=web3
       - BLOCK_STREAM_POLL_INTERVAL=1s
@@ -244,7 +244,7 @@ services:
 
   # Baseline Solvers - Multiple instances for parallel solving
   # Instance 1
-  baseline-1:
+  solver-baseline-1:
     build:
       context: ./modules/services
       target: solvers
@@ -268,7 +268,7 @@ services:
       - "9001:80"      # API & Metrics
 
   # Instance 2
-  baseline-2:
+  solver-baseline-2:
     build:
       context: ./modules/services
       target: solvers
@@ -292,7 +292,7 @@ services:
       - "9002:80"      # API & Metrics
 
   # Instance 3
-  baseline-3:
+  solver-baseline-3:
     build:
       context: ./modules/services
       target: solvers

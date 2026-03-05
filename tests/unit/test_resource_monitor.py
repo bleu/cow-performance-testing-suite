@@ -22,7 +22,7 @@ class TestResourceMonitorConfig:
         assert "orderbook" in config.service_patterns
         assert "autopilot" in config.service_patterns
         assert "driver" in config.service_patterns
-        assert "baseline" in config.service_patterns
+        assert "solver" in config.service_patterns
         assert "chain" in config.service_patterns
 
     def test_custom_patterns(self):
@@ -170,7 +170,7 @@ class TestResourceMonitor:
 
     def test_default_service_patterns_match(self):
         """Test that default patterns are correct."""
-        expected = ["orderbook", "autopilot", "driver", "baseline", "chain"]
+        expected = ["orderbook", "autopilot", "driver", "solver", "chain"]
         assert DEFAULT_SERVICE_PATTERNS == expected
 
 
