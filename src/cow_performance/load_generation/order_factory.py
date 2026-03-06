@@ -40,7 +40,7 @@ class OrderFactory:
         chain_id: int,
         settlement_contract: str,
         amount_range: tuple[float, float] | None = None,
-        valid_duration: int = 600,
+        valid_duration: int = 120,
         default_app_data: str = "0x0000000000000000000000000000000000000000000000000000000000000000",
         fee_percentage: float = 0.001,
         api_client: Any | None = None,
@@ -253,8 +253,8 @@ class OrderFactory:
             )
             fee_amount_wei = 0  # Use zero fee in dry-run mode
 
-        # Market orders have shorter expiration (5 minutes) for immediate execution
-        market_valid_to = int(time.time()) + 300  # 300 seconds = 5 minutes
+        # Market orders have shorter expiration (2 minutes) for immediate execution
+        market_valid_to = int(time.time()) + 120  # 120 seconds = 2 minutes
 
         # Create order parameters with market orderClass metadata
         params = OrderParameters(

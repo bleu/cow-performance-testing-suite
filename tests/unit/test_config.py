@@ -94,7 +94,7 @@ class TestOutputConfig:
         assert config.format == "json"
         assert config.verbose is False
         assert config.save_results is False
-        assert config.results_dir == Path.home() / ".cow-perf" / "results"
+        assert config.results_dir == Path(".cow-perf") / "results"
 
     def test_custom_values(self) -> None:
         """Test that custom values can be set."""

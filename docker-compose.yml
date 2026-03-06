@@ -18,11 +18,19 @@ services:
       - ETH_BLOCKNUMBER=${ETH_BLOCKNUMBER:-}
     volumes:
       - ./docker/anvil-entrypoint.sh:/entrypoint.sh:ro
+    # Note: tmpfs NOT needed - Anvil with --prune-history keeps state in process memory only
+    # No disk/tmpfs accumulation occurs (verified 0% usage)
     ports:
       - "8545:8545"
     dns:
       - 8.8.8.8
       - 8.8.4.4
+    # Limit container logs to prevent disk accumulation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       # Healthcheck that also patches the authenticator contract to allow any solver
       test: ["CMD-SHELL", "
@@ -50,6 +58,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -95,9 +108,9 @@ services:
       - EIP1271_SKIP_CREATION_VALIDATION=true
       - ENABLE_EIP1271_ORDERS=true
       - PRICE_ESTIMATORS=None
-      - PRICE_ESTIMATION_DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - NATIVE_PRICE_ESTIMATORS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
+      - PRICE_ESTIMATION_DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - NATIVE_PRICE_ESTIMATORS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
       - BIND_ADDRESS=0.0.0.0:80
       - CHAIN_ID=1
       - BASELINE_SOURCES=UniswapV2
@@ -116,6 +129,12 @@ services:
       - DISABLE_ORDER_FILTERING=true
     volumes:
       - ./modules/services:/src
+      - orderbook_target:/src/target  # Named volume: persists across restarts, no duplicates
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db-migrations:
         condition: service_completed_successfully
@@ -145,9 +164,9 @@ services:
       - DB_READ_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/postgres
       - SIMULATION_NODE_URL=http://chain:8545
       - LOG_FILTER=warn,autopilot=info,shared=info
-      - DRIVERS=baseline-1|http://driver/baseline-1|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},baseline-2|http://driver/baseline-2|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},baseline-3|http://driver/baseline-3|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
-      - PRICE_ESTIMATION_DRIVERS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
-      - NATIVE_PRICE_ESTIMATORS=baseline-1|http://driver/baseline-1,baseline-2|http://driver/baseline-2,baseline-3|http://driver/baseline-3
+      - DRIVERS=solver-baseline-1|http://driver/solver-baseline-1|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},solver-baseline-2|http://driver/solver-baseline-2|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266},solver-baseline-3|http://driver/solver-baseline-3|${SOLVER_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}
+      - PRICE_ESTIMATION_DRIVERS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
+      - NATIVE_PRICE_ESTIMATORS=solver-baseline-1|http://driver/solver-baseline-1,solver-baseline-2|http://driver/solver-baseline-2,solver-baseline-3|http://driver/solver-baseline-3
       - SETTLE_INTERVAL=15s
       - GAS_ESTIMATORS=web3
       - BLOCK_STREAM_POLL_INTERVAL=1s
@@ -157,6 +176,11 @@ services:
       - SKIP_EVENT_SYNC=true
       - BASELINE_SOURCES=UniswapV2
       - RUST_BACKTRACE=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -176,6 +200,11 @@ services:
     command: ["run", "--config-path", "/config.json"]
     volumes:
       - ./config/watch-tower-config.json:/config.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       orderbook:
         condition: service_healthy
@@ -202,6 +231,11 @@ services:
     volumes:
       - ./configs/driver.toml:/driver.toml.template:ro
       - ./docker/driver-entrypoint.sh:/entrypoint.sh:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -210,7 +244,7 @@ services:
 
   # Baseline Solvers - Multiple instances for parallel solving
   # Instance 1
-  baseline-1:
+  solver-baseline-1:
     build:
       context: ./modules/services
       target: solvers
@@ -222,6 +256,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -229,7 +268,7 @@ services:
       - "9001:80"      # API & Metrics
 
   # Instance 2
-  baseline-2:
+  solver-baseline-2:
     build:
       context: ./modules/services
       target: solvers
@@ -241,6 +280,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -248,7 +292,7 @@ services:
       - "9002:80"      # API & Metrics
 
   # Instance 3
-  baseline-3:
+  solver-baseline-3:
     build:
       context: ./modules/services
       target: solvers
@@ -260,6 +304,11 @@ services:
       - RUST_BACKTRACE=1
     volumes:
       - ./configs/baseline.toml:/baseline.toml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       chain:
         condition: service_healthy
@@ -277,6 +326,8 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--storage.tsdb.retention.size=1GB'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
     ports:
@@ -285,6 +336,11 @@ services:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./configs/prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus_data:/prometheus
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     profiles:
       - monitoring
 
@@ -304,6 +360,11 @@ services:
       - ./configs/grafana-dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml:ro
       - ./configs/dashboards:/etc/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       - prometheus
     profiles:
@@ -313,6 +374,7 @@ volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+  orderbook_target:  # Named volume for Rust build artifacts (prevents duplicates on restart)
 
 networks:
   default:

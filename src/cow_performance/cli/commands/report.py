@@ -1,6 +1,7 @@
 """CLI commands for report generation."""
 
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal, Optional, cast
 
@@ -12,6 +13,9 @@ from cow_performance.reporting import ReportGenerator
 
 app = typer.Typer(help="Generate performance reports")
 console = Console()
+
+# Default directory for saved reports
+DEFAULT_REPORTS_DIR = Path(".cow-perf") / "reports"
 
 
 @app.command("generate")
@@ -28,14 +32,18 @@ def generate_report(
         Optional[Path],
         typer.Option("--output", "-o", help="Output file path"),
     ] = None,
+    save: Annotated[
+        bool,
+        typer.Option("--save", "-s", help="Save report to .cow-perf/reports/"),
+    ] = False,
     compare: Annotated[
         Optional[str],
         typer.Option("--compare", "-c", help="Baseline to compare against"),
     ] = None,
     export_csv: Annotated[
-        Optional[Path],
-        typer.Option("--export-csv", help="Directory for CSV exports"),
-    ] = None,
+        bool,
+        typer.Option("--export-csv", help="Export CSV files to .cow-perf/reports/csv/"),
+    ] = False,
     no_color: Annotated[
         bool,
         typer.Option("--no-color", help="Disable colored output"),
@@ -53,14 +61,20 @@ def generate_report(
         # Generate text report to console
         cow-perf report generate my-baseline
 
-        # Generate markdown report to file
+        # Save report to .cow-perf/reports/
+        cow-perf report generate my-baseline --save
+
+        # Save markdown report
+        cow-perf report generate my-baseline -f markdown --save
+
+        # Save with CSV exports
+        cow-perf report generate my-baseline --save --export-csv
+
+        # Custom output location
         cow-perf report generate my-baseline -f markdown -o report.md
 
         # Compare against another baseline
-        cow-perf report generate current-run -c previous-baseline
-
-        # Export CSV files
-        cow-perf report generate my-baseline --export-csv ./csv_output/
+        cow-perf report generate current-run -c previous-baseline --save
     """
     # Validate format
     valid_formats = ["text", "markdown", "json"]
@@ -106,21 +120,53 @@ def generate_report(
     report = generator.generate(baseline, comparison=comparison)
 
     # Format and output
-    use_colors = not no_color and output is None
     report_format = cast(Literal["text", "markdown", "json"], format)
+
+    # Determine output path
+    output_path = None
+    if output:
+        # User specified exact path
+        output_path = output
+    elif save:
+        # Auto-generate filename in .cow-perf/reports/
+        DEFAULT_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        # Add comparison suffix if comparing
+        suffix = f"-vs-{compare}" if compare else ""
+
+        # File extension based on format
+        ext = {"text": "txt", "markdown": "md", "json": "json"}[report_format]
+        filename = f"report-{baseline_name}{suffix}-{timestamp}.{ext}"
+        output_path = DEFAULT_REPORTS_DIR / filename
+
+    # Format the report
+    use_colors = not no_color and output_path is None
     formatted = generator.format(report, format=report_format, use_colors=use_colors)
 
-    if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(formatted)
-        console.print(f"[green]Report saved to:[/green] {output}")
+    # Save or display
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(formatted)
+        console.print(f"\n[green]✓ Report saved to:[/green] {output_path}")
+
+        # Also show a preview if it's text/markdown
+        if report_format in ["text", "markdown"]:
+            console.print("\n[dim]Preview (first 20 lines):[/dim]")
+            preview_lines = formatted.split("\n")[:20]
+            console.print("\n".join(preview_lines))
+            if len(formatted.split("\n")) > 20:
+                console.print("[dim]... (see file for full report)[/dim]")
     else:
         console.print(formatted)
 
     # Export CSV if requested
     if export_csv:
-        exported = generator.export_csv(report, export_csv)
-        console.print(f"\n[green]CSV files exported to:[/green] {export_csv}")
+        csv_dir = DEFAULT_REPORTS_DIR / "csv" / baseline_name
+        csv_dir.mkdir(parents=True, exist_ok=True)
+
+        exported = generator.export_csv(report, csv_dir)
+        console.print(f"\n[green]✓ CSV files exported to:[/green] {csv_dir}")
         for name, path in exported.items():
             console.print(f"  - {name}: {path.name}")
 

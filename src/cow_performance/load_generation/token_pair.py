@@ -208,6 +208,9 @@ def create_mainnet_token_registry() -> TokenPairRegistry:
     """
     Create a token pair registry with common Ethereum mainnet pairs.
 
+    Optimized for liquidity on UniswapV2 - focuses on pairs with deep liquidity
+    to ensure baseline solver can find solutions.
+
     Returns:
         TokenPairRegistry with pre-configured mainnet token pairs
     """
@@ -232,31 +235,24 @@ def create_mainnet_token_registry() -> TokenPairRegistry:
         symbol="USDT",
         decimals=6,
     )
-    gno = Token(
-        address="0x6810e776880C02933D47DB1b9fc05908e5386b96",
-        symbol="GNO",
-        decimals=18,
-    )
 
-    # Create token pairs with weights (more common pairs have higher weights)
+    # Create token pairs with weights optimized for baseline solver
+    # Only include pairs with deep liquidity on UniswapV2
     pairs = [
-        # WETH pairs (highest weight)
-        TokenPair(sell_token=weth, buy_token=dai, weight=3.0),
-        TokenPair(sell_token=dai, buy_token=weth, weight=3.0),
-        TokenPair(sell_token=weth, buy_token=usdc, weight=3.0),
-        TokenPair(sell_token=usdc, buy_token=weth, weight=3.0),
-        # Stablecoin pairs (medium weight)
-        TokenPair(sell_token=dai, buy_token=usdc, weight=2.0),
-        TokenPair(sell_token=usdc, buy_token=dai, weight=2.0),
-        TokenPair(sell_token=dai, buy_token=usdt, weight=2.0),
-        TokenPair(sell_token=usdt, buy_token=dai, weight=2.0),
-        TokenPair(sell_token=usdc, buy_token=usdt, weight=2.0),
-        TokenPair(sell_token=usdt, buy_token=usdc, weight=2.0),
-        # GNO pairs (lower weight)
-        TokenPair(sell_token=gno, buy_token=weth, weight=1.0),
-        TokenPair(sell_token=weth, buy_token=gno, weight=1.0),
-        TokenPair(sell_token=gno, buy_token=dai, weight=1.0),
-        TokenPair(sell_token=dai, buy_token=gno, weight=1.0),
+        # WETH pairs (highest weight - most liquid)
+        TokenPair(sell_token=weth, buy_token=dai, weight=5.0),
+        TokenPair(sell_token=dai, buy_token=weth, weight=5.0),
+        TokenPair(sell_token=weth, buy_token=usdc, weight=5.0),
+        TokenPair(sell_token=usdc, buy_token=weth, weight=5.0),
+        TokenPair(sell_token=weth, buy_token=usdt, weight=4.0),
+        TokenPair(sell_token=usdt, buy_token=weth, weight=4.0),
+        # Stablecoin pairs (medium-high weight - very liquid)
+        TokenPair(sell_token=dai, buy_token=usdc, weight=4.0),
+        TokenPair(sell_token=usdc, buy_token=dai, weight=4.0),
+        TokenPair(sell_token=dai, buy_token=usdt, weight=3.0),
+        TokenPair(sell_token=usdt, buy_token=dai, weight=3.0),
+        TokenPair(sell_token=usdc, buy_token=usdt, weight=3.0),
+        TokenPair(sell_token=usdt, buy_token=usdc, weight=3.0),
     ]
 
     return TokenPairRegistry(token_pairs=pairs)

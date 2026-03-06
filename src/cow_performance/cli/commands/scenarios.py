@@ -221,7 +221,7 @@ def list_scenarios_command(scenarios_dir: Path | None = None) -> None:
     console = Console()
 
     if scenarios_dir is None:
-        scenarios_dir = Path.home() / ".cow-perf" / "scenarios"
+        scenarios_dir = Path(".cow-perf") / "scenarios"
 
     console.print(f"[bold cyan]Scenarios Directory:[/bold cyan] {scenarios_dir}\n")
 
