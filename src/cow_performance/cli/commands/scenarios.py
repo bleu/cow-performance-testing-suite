@@ -213,11 +213,34 @@ class ScenarioConfig(BaseModel):
                 raise ValueError("min_interval must be less than max_interval")
 
 
-def load_scenario_from_yaml(scenario_path: Path) -> ScenarioConfig:
-    """Load scenario configuration from YAML file.
+def load_scenario_from_yaml(
+    scenario_path: Path,
+    show_warnings: bool = True,
+    substitute_env: bool = True,
+    dotenv_path: Optional[Path] = None,
+    resolve_inheritance: bool = True,
+    apply_defaults: bool = True,
+    project_root: Optional[Path] = None,
+    profile: Optional[str] = None,
+) -> ScenarioConfig:
+    """Load scenario configuration from YAML file with enhanced validation.
+
+    Configuration precedence (lowest to highest priority):
+    1. Built-in defaults (ScenarioConfig field defaults)
+    2. Project defaults (.cow-perf-defaults.yml)
+    3. Scenario file
+    4. Profile overrides (via --profile flag)
+    5. CLI arguments (applied separately)
 
     Args:
         scenario_path: Path to scenario YAML file
+        show_warnings: Whether to display validation warnings (default: True)
+        substitute_env: Whether to substitute environment variables (default: True)
+        dotenv_path: Path to .env file (default: .env in current directory)
+        resolve_inheritance: Whether to resolve inheritance (extends) (default: True)
+        apply_defaults: Whether to apply project defaults (default: True)
+        project_root: Root directory for project defaults (default: scenario file's parent)
+        profile: Optional profile name to apply (default: None)
 
     Returns:
         Parsed and validated ScenarioConfig
@@ -236,10 +259,72 @@ def load_scenario_from_yaml(scenario_path: Path) -> ScenarioConfig:
     if scenario_data is None:
         raise ValueError(f"Scenario file is empty: {scenario_path}")
 
-    # Parse and validate
+    # Apply project defaults if requested
+    if apply_defaults:
+        from cow_performance.scenarios.defaults import load_with_defaults
+
+        try:
+            # Use scenario's parent directory as project root if not specified
+            root = project_root or scenario_path.parent
+            scenario_data = load_with_defaults(scenario_data, project_root=root)
+        except Exception as e:
+            raise ValueError(f"Failed to apply project defaults: {e}") from e
+
+    # Resolve inheritance if requested
+    if resolve_inheritance and "extends" in scenario_data:
+        from cow_performance.scenarios.inheritance import resolve_inheritance as resolve_inh
+
+        try:
+            scenario_data = resolve_inh(
+                scenario_data,
+                config_path=scenario_path,
+                base_dir=scenario_path.parent,
+            )
+        except Exception as e:
+            raise ValueError(f"Inheritance resolution failed: {e}") from e
+
+    # Substitute environment variables if requested
+    if substitute_env:
+        from cow_performance.scenarios.env_substitution import substitute_env_vars
+
+        try:
+            scenario_data = substitute_env_vars(
+                scenario_data, load_dotenv=True, dotenv_path=dotenv_path
+            )
+        except Exception as e:
+            raise ValueError(f"Environment variable substitution failed: {e}") from e
+
+    # Apply profile overrides if requested
+    from cow_performance.scenarios.profiles import apply_profile_if_requested
+
+    try:
+        scenario_data = apply_profile_if_requested(scenario_data, profile)
+    except Exception as e:
+        raise ValueError(f"Profile application failed: {e}") from e
+
+    # Parse and validate with Pydantic
     scenario = ScenarioConfig(**scenario_data)
     scenario.validate_ratios()
     scenario.validate_pattern_parameters()
+
+    # Run enhanced validation
+    from cow_performance.scenarios.config_validation import ConfigValidator
+
+    validator = ConfigValidator()
+    result = validator.validate(scenario)
+
+    # Display or raise errors
+    if not result.valid:
+        # Display errors with rich formatting
+        if show_warnings:
+            console = Console()
+            result.display(console)
+        raise ValueError("Scenario configuration validation failed")
+
+    # Display warnings if requested
+    if show_warnings and result.has_warnings:
+        console = Console()
+        result.display(console)
 
     return scenario
 

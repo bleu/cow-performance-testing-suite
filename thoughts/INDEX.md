@@ -126,6 +126,7 @@ Detailed implementation approaches for tickets. Read these before implementing t
 | [2026-02-03-cow-590-automated-reporting.md](plans/2026-02-03-cow-590-automated-reporting.md) | COW-590 | ✅ Complete | ReportGenerator, formatters, CSV, recommendations, CLI |
 | [2026-02-13-cow-598-alerting-rules.md](plans/2026-02-13-cow-598-alerting-rules.md) | COW-598 | 🔲 Ready | Prometheus alerts, alerting rules, thresholds, Grafana annotations |
 | [m4-issue-14-predefined-scenarios-plan.md](plans/m4-issue-14-predefined-scenarios-plan.md) | M4-Issue-14 | 👀 In Review | scenarios, tags, metadata, success-criteria, CI/CD, documentation |
+| [2026-03-10-m4-issue-15-configuration-architecture.md](plans/2026-03-10-m4-issue-15-configuration-architecture.md) | M4-Issue-15 | 📐 Architecture | configuration-system, inheritance, templates, profiles, defaults, validation |
 
 ---
 
@@ -265,8 +266,10 @@ Find documents by topic:
 | `Cohen's-d` | COW-589 plan |
 | `comparison` | COW-589 ticket, COW-589 plan |
 | `ComparisonEngine` | COW-589 plan |
+| `configuration-system` | M4-Issue-15 architecture |
 | `CSV` | COW-590 plan |
 | `dashboards` | COW-593 ticket |
+| `defaults` | M4-Issue-15 architecture |
 | `data-models` | COW-609 ticket, COW-609 plan |
 | `disk-usage` | docker-disk-usage-investigation report |
 | `docker` | docker-disk-usage-investigation report |
@@ -277,6 +280,7 @@ Find documents by topic:
 | `grafana` | COW-593 ticket |
 | `heatmaps` | COW-593 ticket |
 | `histograms` | COW-591 ticket |
+| `inheritance` | M4-Issue-15 architecture |
 | `lifecycle` | COW-610 ticket, COW-610 plan |
 | `metrics` | COW-587 ticket, COW-609/610/611, COW-591 ticket |
 | `monitoring` | COW-591 ticket, COW-598 ticket |
@@ -284,6 +288,7 @@ Find documents by topic:
 | `optimization` | docker-disk-usage-investigation report |
 | `orderbook` | docker-disk-usage-investigation report |
 | `p-value` | COW-589 plan |
+| `profiles` | M4-Issue-15 architecture |
 | `prune-history` | docker-disk-usage-investigation report |
 | `prometheus` | COW-591 ticket, COW-598 ticket |
 | `PrometheusExporter` | COW-591 ticket |
@@ -298,6 +303,7 @@ Find documents by topic:
 | `statistics` | COW-589 plan |
 | `streaming` | COW-611 ticket, COW-611 plan |
 | `TDD` | COW-587 validation plan |
+| `templates` | M4-Issue-15 architecture |
 | `testing` | COW-587 validation plan |
 | `tmpfs` | docker-disk-usage-investigation report |
 | `Typer` | 2026-01-26 plan |
@@ -309,7 +315,7 @@ Find documents by topic:
 
 ## Maintenance Notes
 
-**Last Updated**: 2026-03-03 (completed docker-disk-usage-investigation report with all three fixes: Rust artifacts, build cache, and Anvil state accumulation)
+**Last Updated**: 2026-03-10 (added M4-Issue-15 architecture document; updated M4-Issue-14 status to "In Review")
 
 ### How to Update This Index
 1. When adding new files, add entries to the appropriate section
