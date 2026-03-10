@@ -254,7 +254,7 @@ class OrderFactory:
             fee_amount_wei = 0  # Use zero fee in dry-run mode
 
         # Market orders have shorter expiration (2 minutes) for immediate execution
-        market_valid_to = int(time.time()) + 120  # 120 seconds = 2 minutes
+        market_valid_to = int(time.time()) + self.valid_duration
 
         # Create order parameters with market orderClass metadata
         params = OrderParameters(
