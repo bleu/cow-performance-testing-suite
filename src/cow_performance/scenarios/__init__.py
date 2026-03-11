@@ -13,12 +13,6 @@ from .defaults import (
     DefaultsLoader,
     load_with_defaults,
 )
-from .env_substitution import (
-    EnvironmentSubstitutor,
-    EnvSubstitutionError,
-    load_dotenv_file,
-    substitute_env_vars,
-)
 from .inheritance import (
     CircularDependencyError,
     InheritanceError,
@@ -57,11 +51,6 @@ __all__ = [
     "ValidationError",
     "ValidationWarning",
     "validate_token_address",
-    # Environment variable substitution
-    "EnvSubstitutionError",
-    "EnvironmentSubstitutor",
-    "load_dotenv_file",
-    "substitute_env_vars",
     # Inheritance resolution
     "CircularDependencyError",
     "InheritanceError",

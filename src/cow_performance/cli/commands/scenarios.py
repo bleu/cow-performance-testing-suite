@@ -216,8 +216,6 @@ class ScenarioConfig(BaseModel):
 def load_scenario_from_yaml(
     scenario_path: Path,
     show_warnings: bool = True,
-    substitute_env: bool = True,
-    dotenv_path: Optional[Path] = None,
     resolve_inheritance: bool = True,
     apply_defaults: bool = True,
     project_root: Optional[Path] = None,
@@ -235,8 +233,6 @@ def load_scenario_from_yaml(
     Args:
         scenario_path: Path to scenario YAML file
         show_warnings: Whether to display validation warnings (default: True)
-        substitute_env: Whether to substitute environment variables (default: True)
-        dotenv_path: Path to .env file (default: .env in current directory)
         resolve_inheritance: Whether to resolve inheritance (extends) (default: True)
         apply_defaults: Whether to apply project defaults (default: True)
         project_root: Root directory for project defaults (default: scenario file's parent)
@@ -304,17 +300,6 @@ def load_scenario_from_yaml(
             )
         except Exception as e:
             raise ValueError(f"Inheritance resolution failed: {e}") from e
-
-    # Substitute environment variables if requested
-    if substitute_env:
-        from cow_performance.scenarios.env_substitution import substitute_env_vars
-
-        try:
-            scenario_data = substitute_env_vars(
-                scenario_data, load_dotenv=True, dotenv_path=dotenv_path
-            )
-        except Exception as e:
-            raise ValueError(f"Environment variable substitution failed: {e}") from e
 
     # Apply profile overrides if requested
     from cow_performance.scenarios.profiles import apply_profile_if_requested
