@@ -1,6 +1,5 @@
 """Tests for template-based scenario generation."""
 
-from pathlib import Path
 
 import pytest
 import yaml
@@ -339,9 +338,7 @@ class TestTemplateExpansion:
         )
 
         expander = TemplateExpander(template_dirs=[template_dir])
-        result = expander.expand_template(
-            "simple", {"test_name": "My Test", "num_traders": 20}
-        )
+        result = expander.expand_template("simple", {"test_name": "My Test", "num_traders": 20})
 
         assert result == {
             "name": "My Test",

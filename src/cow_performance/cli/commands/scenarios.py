@@ -259,6 +259,28 @@ def load_scenario_from_yaml(
     if scenario_data is None:
         raise ValueError(f"Scenario file is empty: {scenario_path}")
 
+    # Expand template if present (happens before defaults and inheritance)
+    if "template" in scenario_data:
+        from cow_performance.scenarios.templates import TemplateExpander
+
+        try:
+            template_name = scenario_data.get("template")
+            template_params = scenario_data.get("parameters", {})
+
+            # Expand template
+            expander = TemplateExpander()
+            expanded = expander.expand_template(template_name, template_params)
+
+            # Merge expanded template with any additional fields in scenario file
+            # (fields in scenario_data override template, except 'template' and 'parameters')
+            for key, value in scenario_data.items():
+                if key not in ("template", "parameters"):
+                    expanded[key] = value
+
+            scenario_data = expanded
+        except Exception as e:
+            raise ValueError(f"Template expansion failed: {e}") from e
+
     # Apply project defaults if requested
     if apply_defaults:
         from cow_performance.scenarios.defaults import load_with_defaults
@@ -543,6 +565,98 @@ def list_scenarios_command(
             )
 
         console.print(error_table)
+
+
+def list_templates_command() -> None:
+    """List available scenario templates with descriptions.
+
+    Templates provide quick ways to create common test patterns like
+    ramp-up, spike, and sustained load tests.
+    """
+    from cow_performance.scenarios.templates import TemplateExpander
+
+    console = Console()
+
+    expander = TemplateExpander()
+
+    # Build table
+    table = Table(title="Available Scenario Templates", show_header=True, header_style="bold cyan")
+    table.add_column("Template", style="green", width=20)
+    table.add_column("Description", style="white", width=60)
+    table.add_column("Location", style="dim", width=30)
+
+    templates_found: list[tuple[str, str, str]] = []
+
+    # Search for templates in all directories
+    for template_dir in expander.template_dirs:
+        if not template_dir.exists():
+            continue
+
+        # Find all .template.yml and .yml files
+        for pattern in ["*.template.yml", "*.yml"]:
+            for template_file in template_dir.glob(pattern):
+                # Extract template name (remove .template.yml or .yml)
+                template_name = template_file.stem
+                if template_name.endswith(".template"):
+                    template_name = template_name[: -len(".template")]
+
+                # Skip if already found (prefer first occurrence)
+                if template_name in [t[0] for t in templates_found]:
+                    continue
+
+                # Load template to get metadata
+                try:
+                    template_data = expander.load_template(template_name)
+                    metadata = template_data.get("template_metadata", {})
+                    description = metadata.get("description", "No description available")
+
+                    # Get relative path from current directory
+                    try:
+                        rel_path = template_file.relative_to(Path.cwd())
+                    except ValueError:
+                        rel_path = template_file
+
+                    templates_found.append((template_name, description, str(rel_path)))
+                except Exception as e:
+                    # If we can't load it, still show it but with error
+                    templates_found.append(
+                        (
+                            template_name,
+                            f"[red]Error loading: {str(e)[:40]}[/red]",
+                            str(template_file),
+                        )
+                    )
+
+    if not templates_found:
+        console.print("[yellow]No templates found.[/yellow]")
+        console.print("\nDefault template locations:")
+        for template_dir in expander.template_dirs:
+            console.print(f"  • {template_dir}")
+        return
+
+    # Sort by template name
+    templates_found.sort(key=lambda x: x[0])
+
+    for template_name, description, location in templates_found:
+        table.add_row(template_name, description, location)
+
+    console.print(table)
+
+    # Show usage example
+    console.print("\n[bold cyan]Usage:[/bold cyan]")
+    console.print("Create a scenario from a template:")
+    console.print("  1. Create a file with template reference:")
+    console.print("     [dim]cat > my-test.yml <<EOF[/dim]")
+    console.print("     [dim]template: ramp-up[/dim]")
+    console.print("     [dim]parameters:[/dim]")
+    console.print("     [dim]  num_traders: 10[/dim]")
+    console.print("     [dim]  duration: 300[/dim]")
+    console.print("     [dim]  start_rate: 6.0[/dim]")
+    console.print("     [dim]  target_rate: 60.0[/dim]")
+    console.print("     [dim]EOF[/dim]")
+    console.print()
+    console.print("  2. Run the test:")
+    console.print("     [dim]cow-perf run --config my-test.yml[/dim]")
 
 
 def validate_scenario_command(scenario_path: Path) -> None:

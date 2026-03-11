@@ -9,24 +9,24 @@ template_metadata:
       type: string
       required: false
       default: "Sustained Load Test"
-      description: Name of the test scenario
+      description: "Name of the test scenario"
     - name: num_traders
       type: int
       required: true
-      description: Number of concurrent traders generating load
+      description: "Number of concurrent traders generating load"
     - name: duration
       type: int
       required: true
-      description: Test duration in seconds
+      description: "Test duration in seconds"
     - name: orders_per_minute
       type: float
       required: true
-      description: Target order rate (orders per minute per trader)
+      description: "Target order rate (orders per minute per trader)"
     - name: env
       type: string
       required: false
       default: "test"
-      description: Environment tag
+      description: "Environment tag"
 
 # Scenario configuration
 name: "${test_name:-Sustained Load Test}"
@@ -34,7 +34,7 @@ description: "Sustained load with ${num_traders} traders at ${orders_per_minute}
 version: "1.0"
 
 tags:
-  - "${env}"
+  - "${env:-test}"
   - "sustained-load"
   - "stability"
 
@@ -56,7 +56,6 @@ base_rate: ${orders_per_minute}
 
 # Metadata
 metadata:
-  expected_orders: ${num_traders * orders_per_minute * duration / 60}
   expected_duration_seconds: ${duration}
   resources:
     min_memory_gb: 4

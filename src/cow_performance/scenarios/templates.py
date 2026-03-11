@@ -97,8 +97,7 @@ class TemplateExpander:
         if template_path is None:
             searched = ", ".join(str(d) for d in self.template_dirs)
             raise TemplateNotFoundError(
-                f"Template '{template_name}' not found.\n"
-                f"Searched directories: {searched}"
+                f"Template '{template_name}' not found.\n" f"Searched directories: {searched}"
             )
 
         try:
@@ -109,9 +108,7 @@ class TemplateExpander:
                 raise TemplateError(f"Template file is empty: {template_path}")
 
             if not isinstance(template, dict):
-                raise TemplateError(
-                    f"Template must be a dictionary, got {type(template).__name__}"
-                )
+                raise TemplateError(f"Template must be a dictionary, got {type(template).__name__}")
 
             return template
 
@@ -156,9 +153,7 @@ class TemplateExpander:
 
         return self.PARAM_PATTERN.sub(replace_param, text)
 
-    def expand_dict(
-        self, config: dict[str, Any], parameters: dict[str, Any]
-    ) -> dict[str, Any]:
+    def expand_dict(self, config: dict[str, Any], parameters: dict[str, Any]) -> dict[str, Any]:
         """Recursively expand parameters in a dictionary.
 
         Args:
@@ -191,9 +186,7 @@ class TemplateExpander:
 
         return result
 
-    def expand_list(
-        self, items: list[Any], parameters: dict[str, Any]
-    ) -> list[Any]:
+    def expand_list(self, items: list[Any], parameters: dict[str, Any]) -> list[Any]:
         """Recursively expand parameters in a list.
 
         Args:
